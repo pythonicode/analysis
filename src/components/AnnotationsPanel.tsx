@@ -94,6 +94,36 @@ function AnnotationItem({
   )
 }
 
+function MarkerDisplayToggle() {
+  const markerDisplayMode = useAppStore((s) => s.markerDisplayMode)
+  const setMarkerDisplayMode = useAppStore((s) => s.setMarkerDisplayMode)
+
+  return (
+    <div
+      className="marker-display-toggle"
+      role="group"
+      aria-label="Map marker display"
+    >
+      <button
+        type="button"
+        className={markerDisplayMode === 'labels' ? 'active' : ''}
+        aria-pressed={markerDisplayMode === 'labels'}
+        onClick={() => setMarkerDisplayMode('labels')}
+      >
+        Labels
+      </button>
+      <button
+        type="button"
+        className={markerDisplayMode === 'comments' ? 'active' : ''}
+        aria-pressed={markerDisplayMode === 'comments'}
+        onClick={() => setMarkerDisplayMode('comments')}
+      >
+        Comments
+      </button>
+    </div>
+  )
+}
+
 function AnnotationsContent({
   layoutMode,
 }: {
@@ -105,8 +135,11 @@ function AnnotationsContent({
   return (
     <>
       <div className="panel-header">
-        <MessageSquareText size={16} aria-hidden />
-        <h2>Annotations</h2>
+        <div className="panel-header-title">
+          <MessageSquareText size={16} aria-hidden />
+          <h2>Annotations</h2>
+        </div>
+        <MarkerDisplayToggle />
       </div>
 
       {annotations.length === 0 ? (
@@ -129,8 +162,8 @@ function AnnotationsContent({
 
       <p className="panel-hint">
         {layoutMode === 'touch'
-          ? 'Tap a marker letter to centre it on the map. Comments are included in the exported image.'
-          : 'Click a marker letter to centre it on the map. Comments are included in the exported image.'}
+          ? 'Switch between letter labels and inline comments on the map. Drag the right edge of a selected comment to change its width.'
+          : 'Switch between letter labels and inline comments on the map. Drag the right edge of a selected comment to change its width.'}
       </p>
     </>
   )

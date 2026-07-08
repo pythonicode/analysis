@@ -1,5 +1,7 @@
 export type Tool = 'select' | 'pan' | 'line' | 'marker' | 'eraser' | 'gpx'
 
+export type MarkerDisplayMode = 'labels' | 'comments'
+
 export interface Point {
   x: number
   y: number
@@ -49,6 +51,8 @@ export interface Annotation {
   /** Marker radius in map units, captured from the width setting at placement */
   size: number
   color: string
+  /** Text wrap width for inline comment boxes on the map; height follows content */
+  commentBoxWidth?: number
 }
 
 export interface MapImage {

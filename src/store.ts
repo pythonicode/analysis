@@ -6,6 +6,7 @@ import type {
   DrawnPath,
   GpxTrack,
   MapImage,
+  MarkerDisplayMode,
   Point,
   Tool,
   Viewport,
@@ -47,6 +48,7 @@ interface AppState extends Snapshot {
   selectedId: string | null
   importError: string | null
   annotationsOpen: boolean
+  markerDisplayMode: MarkerDisplayMode
   toastMessage: string | null
 
   past: Snapshot[]
@@ -66,6 +68,7 @@ interface AppState extends Snapshot {
   openAnnotations: () => void
   closeAnnotations: () => void
   toggleAnnotations: () => void
+  setMarkerDisplayMode: (mode: MarkerDisplayMode) => void
   setToastMessage: (message: string | null) => void
 
   addTrack: (track: GpxTrack) => void
@@ -147,6 +150,7 @@ export const useAppStore = create<AppState>()(
   selectedId: null,
   importError: null,
   annotationsOpen: false,
+  markerDisplayMode: 'labels',
   toastMessage: null,
 
   past: [],
@@ -166,6 +170,7 @@ export const useAppStore = create<AppState>()(
   closeAnnotations: () => set({ annotationsOpen: false }),
   toggleAnnotations: () =>
     set((s) => ({ annotationsOpen: !s.annotationsOpen })),
+  setMarkerDisplayMode: (mode) => set({ markerDisplayMode: mode }),
   setToastMessage: (message) => set({ toastMessage: message }),
 
   addTrack: (track) =>
@@ -281,6 +286,7 @@ export const useAppStore = create<AppState>()(
         strokeColor: s.strokeColor,
         strokeOpacity: s.strokeOpacity,
         viewport: s.viewport,
+        markerDisplayMode: s.markerDisplayMode,
       }),
     },
   ),
