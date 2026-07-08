@@ -265,7 +265,6 @@ export default function MarkersLayer({
   const beginResize = (
     e: KonvaEventObject<PointerEvent>,
     annotation: Annotation,
-    index: number,
   ) => {
     e.cancelBubble = true
     e.evt.preventDefault()
@@ -324,7 +323,7 @@ export default function MarkersLayer({
                 previewTextWidth={previewTextWidth}
                 viewportScale={viewportScale}
                 layoutMode={layoutMode}
-                onResizePointerDown={(e) => beginResize(e, annotation, index)}
+                onResizePointerDown={(e) => beginResize(e, annotation)}
               />
             ) : (
               <Circle
