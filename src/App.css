@@ -914,8 +914,10 @@
   width: 480px;
   max-width: calc(100vw - 48px);
   max-height: 80svh;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -927,8 +929,14 @@
   width: 100%;
   max-width: 100%;
   border-radius: 16px 16px 0 0;
-  max-height: 90svh;
+  max-height: min(90dvh, calc(100dvh - env(safe-area-inset-top, 0px)));
   border-bottom: none;
+}
+
+.app-shell[data-layout='touch'] .modal-footer,
+.app-shell[data-layout='touch'] .modal-actions {
+  flex-shrink: 0;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
 }
 
 .app-shell[data-layout='touch'] .modal-gpx .modal-track-controls {
@@ -1065,6 +1073,7 @@
 
 .modal-header {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: space-between;
   padding: 14px 16px;
@@ -1094,6 +1103,7 @@
 
 .modal-track-list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   list-style: none;
   margin: 0;
@@ -1193,6 +1203,7 @@
 
 .modal-footer {
   display: flex;
+  flex-shrink: 0;
   justify-content: flex-end;
   padding: 12px 16px;
   border-top: 1px solid var(--border);
@@ -1205,8 +1216,15 @@
   line-height: 1.5;
 }
 
+.app-shell[data-layout='touch'] .modal .modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .modal-actions {
   display: flex;
+  flex-shrink: 0;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
