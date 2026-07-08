@@ -25,7 +25,7 @@ const TOOLS: {
   {
     id: 'pan',
     label: 'Pan',
-    tip: 'Drag the map to move around. Hold Space for temporary pan.',
+    tip: 'Drag the map to move around. Hold Space or middle mouse for temporary pan.',
     icon: Hand,
   },
   {

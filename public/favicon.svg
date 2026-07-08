@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="O-Analysis">
+  <rect width="512" height="512" rx="112" fill="#f97316"/>
+  <g fill="none" stroke="#ffffff" stroke-width="28" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M256 112c-88 0-160 72-160 160 0 120 160 224 160 224s160-104 160-224c0-88-72-160-160-160z"/>
+    <circle cx="256" cy="272" r="56"/>
+  </g>
+  <text x="256" y="468" text-anchor="middle" fill="#ffffff" font-family="system-ui, Segoe UI, sans-serif" font-size="72" font-weight="700">O</text>
+</svg>

@@ -26,7 +26,7 @@ function validateProjectFile(raw: unknown): ProjectFile {
   const data = raw as Record<string, unknown>
 
   if (data.format !== PROJECT_FORMAT) {
-    throw new Error('Not a Map Analysis project file')
+    throw new Error('Not an O-Analysis project file')
   }
   if (data.version !== PROJECT_VERSION) {
     throw new Error(`Unsupported project version: ${String(data.version)}`)

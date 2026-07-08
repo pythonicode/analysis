@@ -65,6 +65,11 @@
   color: var(--text-h);
 }
 
+.topbar-logo {
+  display: block;
+  flex-shrink: 0;
+}
+
 .topbar-title h1 {
   font-size: 17px;
   font-weight: 600;

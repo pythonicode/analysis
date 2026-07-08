@@ -30,14 +30,21 @@ export default function CanvasArea() {
   const addAnnotation = useAppStore((s) => s.addAnnotation)
 
   const containerRef = useRef<HTMLDivElement>(null)
+  const middlePanRef = useRef<{
+    startX: number
+    startY: number
+    viewportX: number
+    viewportY: number
+  } | null>(null)
   const [size, setSize] = useState({ width: 0, height: 0 })
   const [spaceHeld, setSpaceHeld] = useState(false)
+  const [middleMouseHeld, setMiddleMouseHeld] = useState(false)
   const [draft, setDraft] = useState<DraftStroke | null>(null)
   const lastFittedSrc = useRef<string | null>(null)
   const erasingRef = useRef(false)
 
   const isDrawingTool = activeTool === 'line'
-  const isPanning = activeTool === 'pan' || spaceHeld
+  const isPanning = activeTool === 'pan' || spaceHeld || middleMouseHeld
 
   useEffect(() => {
     const container = containerRef.current
@@ -121,6 +128,20 @@ export default function CanvasArea() {
     }
   }, [])
 
+  useEffect(() => {
+    const endMiddlePan = () => {
+      middlePanRef.current = null
+      setMiddleMouseHeld(false)
+    }
+
+    const onPointerUp = (e: PointerEvent) => {
+      if (e.button === 1) endMiddlePan()
+    }
+
+    window.addEventListener('pointerup', onPointerUp)
+    return () => window.removeEventListener('pointerup', onPointerUp)
+  }, [])
+
   const attachStage = useCallback((node: Konva.Stage | null) => {
     stageRef.current = node
   }, [])
@@ -181,7 +202,21 @@ export default function CanvasArea() {
 
   const handlePointerDown = (e: KonvaEventObject<PointerEvent>) => {
     const stage = e.target.getStage()
-    if (!stage || isPanning) return
+    if (!stage) return
+
+    if (e.evt.button === 1) {
+      e.evt.preventDefault()
+      middlePanRef.current = {
+        startX: e.evt.clientX,
+        startY: e.evt.clientY,
+        viewportX: viewport.x,
+        viewportY: viewport.y,
+      }
+      setMiddleMouseHeld(true)
+      return
+    }
+
+    if (isPanning) return
     if (e.evt.button !== undefined && e.evt.button !== 0) return
     const pos = stage.getRelativePointerPosition()
     if (!pos) return
@@ -214,6 +249,17 @@ export default function CanvasArea() {
   const handlePointerMove = (e: KonvaEventObject<PointerEvent>) => {
     const stage = e.target.getStage()
     if (!stage) return
+
+    if (middlePanRef.current) {
+      const pan = middlePanRef.current
+      setViewport({
+        scale: viewport.scale,
+        x: pan.viewportX + (e.evt.clientX - pan.startX),
+        y: pan.viewportY + (e.evt.clientY - pan.startY),
+      })
+      return
+    }
+
     const pos = stage.getRelativePointerPosition()
     if (!pos) return
     setPointer({ x: pos.x, y: pos.y })
@@ -232,6 +278,14 @@ export default function CanvasArea() {
         setDraft({ ...draft, points: [...pts, pos.x, pos.y] })
       }
     }
+  }
+
+  const handlePointerUp = (e: KonvaEventObject<PointerEvent>) => {
+    if (e.evt.button === 1) {
+      middlePanRef.current = null
+      setMiddleMouseHeld(false)
+    }
+    commitDraft()
   }
 
   const commitDraft = () => {
@@ -255,7 +309,9 @@ export default function CanvasArea() {
   }
 
   const cursor = isPanning
-    ? 'grab'
+    ? middleMouseHeld
+      ? 'grabbing'
+      : 'grab'
     : isDrawingTool ||
         activeTool === 'marker' ||
         activeTool === 'eraser' ||
@@ -269,6 +325,7 @@ export default function CanvasArea() {
       ref={containerRef}
       style={{ cursor }}
       onDragOver={(e) => e.preventDefault()}
+      onAuxClick={(e) => e.button === 1 && e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault()
         if (e.dataTransfer.files.length > 0) {
@@ -288,9 +345,11 @@ export default function CanvasArea() {
         onWheel={handleWheel}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
-        onPointerUp={commitDraft}
+        onPointerUp={handlePointerUp}
         onPointerLeave={() => {
           setPointer(null)
+          middlePanRef.current = null
+          setMiddleMouseHeld(false)
           commitDraft()
         }}
         onDragMove={syncViewportFromStage}

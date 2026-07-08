@@ -2,10 +2,10 @@ import { useRef, useState } from 'react'
 import {
   CircleAlert,
   Download,
+  HardDriveDownload,
   FilePlus,
   FolderOpen,
   Image,
-  Map,
   Redo2,
   Route,
   Save,
@@ -16,6 +16,7 @@ import { useAppStore } from '../store'
 import { importGpxFile, importImageFile } from '../utils/files'
 import { exportPng } from '../utils/export'
 import { openProjectFile, saveProjectFile, PROJECT_FILE_EXTENSION } from '../utils/project'
+import { usePwaInstall } from '../hooks/usePwaInstall'
 import EditGpxModal from './EditGpxModal'
 import NewProjectModal from './NewProjectModal'
 import Tooltip from './Tooltip'
@@ -40,6 +41,7 @@ export default function TopBar() {
   const projectInputRef = useRef<HTMLInputElement>(null)
   const [gpxModalOpen, setGpxModalOpen] = useState(false)
   const [newProjectModalOpen, setNewProjectModalOpen] = useState(false)
+  const { canInstall, install } = usePwaInstall()
 
   const handleNewProject = () => {
     if (!canSave) {
@@ -52,8 +54,14 @@ export default function TopBar() {
   return (
     <header className="topbar">
       <div className="topbar-title">
-        <Map size={20} aria-hidden />
-        <h1>Map Analysis</h1>
+        <img
+          src="/favicon.svg"
+          alt=""
+          className="topbar-logo"
+          width={20}
+          height={20}
+        />
+        <h1>O-Analysis</h1>
       </div>
 
       {importError && (
@@ -216,6 +224,18 @@ export default function TopBar() {
             Export PNG
           </button>
         </Tooltip>
+        {canInstall && (
+          <Tooltip content="Install O-Analysis as a desktop app">
+            <button
+              type="button"
+              className="button"
+              onClick={() => void install()}
+            >
+              <HardDriveDownload size={16} aria-hidden />
+              Install App
+            </button>
+          </Tooltip>
+        )}
       </div>
 
       {gpxModalOpen && (
