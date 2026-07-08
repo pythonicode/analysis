@@ -43,7 +43,6 @@ function resolveTextWidth(
 
 function measureForAnnotation(
   annotation: Annotation,
-  index: number,
   previewTextWidth?: number,
 ) {
   const text = commentBodyText(annotation)
@@ -124,7 +123,7 @@ function CommentBox({
   onResizePointerDown: (e: KonvaEventObject<PointerEvent>) => void
 }) {
   const { width, height, lineText, textWidth, isPlaceholder } =
-    measureForAnnotation(annotation, index, previewTextWidth)
+    measureForAnnotation(annotation, previewTextWidth)
   const gripWidth = Math.max(10 / viewportScale, 6)
   const label = markerLabel(index)
   const isTouch = layoutMode === 'touch'
