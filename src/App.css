@@ -479,6 +479,11 @@
   border: 2px dashed var(--border);
   border-radius: 12px;
   box-shadow: var(--shadow);
+  pointer-events: auto;
+}
+
+.canvas-empty-action {
+  margin-top: 8px;
 }
 
 .canvas-empty-card h2 {

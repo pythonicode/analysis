@@ -80,9 +80,39 @@ export function saveProjectFile(): void {
   URL.revokeObjectURL(url)
 }
 
+/** Loads project data parsed from JSON text. */
+function loadProjectFromText(text: string): void {
+  const { loadProject } = useAppStore.getState()
+  const parsed = validateProjectFile(JSON.parse(text))
+  loadProject({
+    mapImage: parsed.mapImage,
+    tracks: parsed.tracks,
+    paths: parsed.paths,
+    annotations: parsed.annotations,
+  })
+}
+
+/** Loads the bundled sample project from /public/sample.anal. */
+export async function openSampleProject(): Promise<void> {
+  const { setImportError } = useAppStore.getState()
+  setImportError(null)
+
+  try {
+    const response = await fetch('/sample.anal')
+    if (!response.ok) {
+      throw new Error('Sample project not found')
+    }
+    loadProjectFromText(await response.text())
+  } catch (error) {
+    setImportError(
+      error instanceof Error ? error.message : 'Failed to load sample project',
+    )
+  }
+}
+
 /** Loads a project from a .anal file. */
 export async function openProjectFile(file: File): Promise<void> {
-  const { loadProject, setImportError } = useAppStore.getState()
+  const { setImportError } = useAppStore.getState()
   setImportError(null)
 
   if (!isProjectFile(file)) {
@@ -91,14 +121,7 @@ export async function openProjectFile(file: File): Promise<void> {
   }
 
   try {
-    const text = await file.text()
-    const parsed = validateProjectFile(JSON.parse(text))
-    loadProject({
-      mapImage: parsed.mapImage,
-      tracks: parsed.tracks,
-      paths: parsed.paths,
-      annotations: parsed.annotations,
-    })
+    loadProjectFromText(await file.text())
   } catch (error) {
     setImportError(
       error instanceof Error ? error.message : 'Failed to open project file',

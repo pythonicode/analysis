@@ -7,6 +7,7 @@ import { useAppStore } from '../store'
 import { stageRef } from '../stageRef'
 import { simplifyPath } from '../utils/geometry'
 import { importDroppedFiles } from '../utils/files'
+import { openSampleProject } from '../utils/project'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import { usePinchZoom } from '../hooks/usePinchZoom'
 import MapImageLayer from './canvas/MapImageLayer'
@@ -48,6 +49,7 @@ export default function CanvasArea({
   const [spaceHeld, setSpaceHeld] = useState(false)
   const [middleMouseHeld, setMiddleMouseHeld] = useState(false)
   const [draft, setDraft] = useState<DraftStroke | null>(null)
+  const [loadingSample, setLoadingSample] = useState(false)
   const lastFittedSrc = useRef<string | null>(null)
   const erasingRef = useRef(false)
 
@@ -356,6 +358,15 @@ export default function CanvasArea({
       ? 'crosshair'
       : 'default'
 
+  const handleLoadSample = useCallback(async () => {
+    setLoadingSample(true)
+    try {
+      await openSampleProject()
+    } finally {
+      setLoadingSample(false)
+    }
+  }, [])
+
   return (
     <main
       className={`canvas-area${isTouch ? ' canvas-area-touch' : ''}`}
@@ -408,6 +419,14 @@ export default function CanvasArea({
                 ? 'Import a map image from the menu to get started.'
                 : 'Import a map image to get started, or drop a file here.'}
             </p>
+            <button
+              type="button"
+              className="button button-primary canvas-empty-action"
+              disabled={loadingSample}
+              onClick={() => void handleLoadSample()}
+            >
+              {loadingSample ? 'Loading sample…' : 'Open sample project'}
+            </button>
           </div>
         </div>
       )}
