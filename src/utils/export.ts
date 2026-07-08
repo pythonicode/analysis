@@ -70,6 +70,7 @@ function layoutSidebar(
   const fontSize = Math.max(10, Math.min(columnWidth * 0.042, 28))
   const lineHeight = fontSize * 1.3
   const chipRadius = fontSize * 0.7
+  const font = 'system-ui, "Segoe UI", Roboto, sans-serif'
   const headerHeight = pad + fontSize + lineHeight * 1.4
   const entryGap = lineHeight * 0.65
   const textXOffset = pad + chipRadius * 2 + fontSize * 0.5
