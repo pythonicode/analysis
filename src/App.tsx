@@ -4,8 +4,16 @@ import ToolPalette from './components/ToolPalette'
 import CanvasArea from './components/CanvasArea'
 import AnnotationsPanel from './components/AnnotationsPanel'
 import StatusBar from './components/StatusBar'
+import MobileNotice from './components/MobileNotice'
+import { useIsMobile } from './hooks/useIsMobile'
 
 function App() {
+  const isMobile = useIsMobile()
+
+  if (isMobile) {
+    return <MobileNotice />
+  }
+
   return (
     <div className="app-shell">
       <TopBar />
