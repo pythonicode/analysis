@@ -49,7 +49,7 @@ const TOOLS: {
   {
     id: 'gpx',
     label: 'Adjust GPX',
-    tip: 'Drag anchor pins to warp the GPX track onto the map.',
+    tip: 'Click the track to add pins, drag to move them, right-click a pin to delete it.',
     icon: Anchor,
   },
 ]

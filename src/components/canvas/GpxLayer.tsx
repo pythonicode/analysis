@@ -32,6 +32,7 @@ function Track({
 
   const addAnchorAtPointer = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
     if (!adjustMode) return
+    if ('button' in e.evt && e.evt.button !== 0) return
     const stage = e.target.getStage()
     const pos = stage?.getRelativePointerPosition()
     if (!pos) return
@@ -69,9 +70,19 @@ function Track({
   }
 
   const removePin = (index: number) => {
+    setDragAnchors(null)
     updateTrack(track.id, {
       anchors: track.anchors.filter((_, i) => i !== index),
     })
+  }
+
+  const handlePinContextMenu = (
+    index: number,
+    e: KonvaEventObject<PointerEvent>,
+  ) => {
+    e.evt.preventDefault()
+    if (!adjustMode) return
+    removePin(index)
   }
 
   return (
@@ -98,6 +109,7 @@ function Track({
             draggable
             onDragMove={(e) => movePin(index, e)}
             onDragEnd={(e) => commitPin(index, e)}
+            onContextMenu={(e) => handlePinContextMenu(index, e)}
             onDblClick={() => removePin(index)}
             onDblTap={() => removePin(index)}
           >
