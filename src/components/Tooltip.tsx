@@ -14,6 +14,7 @@ import {
 import Portal from './Portal'
 
 type Side = 'top' | 'bottom' | 'left' | 'right'
+type TriggerMode = 'hover' | 'press' | 'auto'
 
 const OPPOSITE: Record<Side, Side> = {
   top: 'bottom',
@@ -111,6 +112,21 @@ function resolvePosition(
   }
 }
 
+function useCoarsePointer(): boolean {
+  const [coarse, setCoarse] = useState(() =>
+    window.matchMedia('(pointer: coarse)').matches,
+  )
+
+  useEffect(() => {
+    const mq = window.matchMedia('(pointer: coarse)')
+    const update = () => setCoarse(mq.matches)
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
+
+  return coarse
+}
+
 type ChildProps = {
   disabled?: boolean
   ref?: Ref<HTMLElement>
@@ -119,6 +135,7 @@ type ChildProps = {
   onMouseLeave?: (e: React.MouseEvent) => void
   onFocus?: (e: React.FocusEvent) => void
   onBlur?: (e: React.FocusEvent) => void
+  onClick?: (e: React.MouseEvent) => void
 }
 
 export default function Tooltip({
@@ -126,12 +143,14 @@ export default function Tooltip({
   side = 'bottom',
   delay = SHOW_DELAY_MS,
   disabled = false,
+  trigger = 'auto',
   children,
 }: {
   content: string
   side?: Side
   delay?: number
   disabled?: boolean
+  trigger?: TriggerMode
   children: ReactElement
 }) {
   const id = useId()
@@ -144,6 +163,9 @@ export default function Tooltip({
     left: number
     side: Side
   } | null>(null)
+  const isCoarse = useCoarsePointer()
+  const usePress =
+    trigger === 'press' || (trigger === 'auto' && isCoarse)
 
   const clearShowTimer = useCallback(() => {
     if (showTimerRef.current !== null) {
@@ -160,17 +182,21 @@ export default function Tooltip({
   const show = useCallback(() => {
     if (disabled || !content) return
     clearShowTimer()
+    if (usePress) {
+      setVisible(true)
+      return
+    }
     showTimerRef.current = window.setTimeout(() => {
       setVisible(true)
     }, delay)
-  }, [clearShowTimer, content, delay, disabled])
+  }, [clearShowTimer, content, delay, disabled, usePress])
 
   const updatePosition = useCallback(() => {
-    const trigger = triggerRef.current
+    const triggerEl = triggerRef.current
     const tooltip = tooltipRef.current
-    if (!trigger || !tooltip) return
+    if (!triggerEl || !tooltip) return
 
-    const triggerRect = trigger.getBoundingClientRect()
+    const triggerRect = triggerEl.getBoundingClientRect()
     const tooltipRect = tooltip.getBoundingClientRect()
     setPosition(resolvePosition(triggerRect, tooltipRect, side))
   }, [side])
@@ -193,6 +219,19 @@ export default function Tooltip({
     }
   }, [visible, hide])
 
+  useEffect(() => {
+    if (!visible || !usePress) return
+
+    const onPointerDown = (e: PointerEvent) => {
+      const triggerEl = triggerRef.current
+      if (triggerEl && !triggerEl.contains(e.target as Node)) {
+        hide()
+      }
+    }
+    window.addEventListener('pointerdown', onPointerDown)
+    return () => window.removeEventListener('pointerdown', onPointerDown)
+  }, [visible, usePress, hide])
+
   useEffect(() => () => clearShowTimer(), [clearShowTimer])
 
   if (!isValidElement(children)) {
@@ -203,30 +242,44 @@ export default function Tooltip({
   const isDisabled = Boolean(childProps.disabled)
   const describedBy = visible ? id : undefined
 
-  const eventHandlers = {
-    onMouseEnter: (e: React.MouseEvent) => {
-      childProps.onMouseEnter?.(e)
-      show()
-    },
-    onMouseLeave: (e: React.MouseEvent) => {
-      childProps.onMouseLeave?.(e)
-      hide()
-    },
-    onFocus: (e: React.FocusEvent) => {
-      childProps.onFocus?.(e)
-      show()
-    },
-    onBlur: (e: React.FocusEvent) => {
-      childProps.onBlur?.(e)
-      hide()
-    },
-  }
+  const eventHandlers = usePress
+    ? {
+        onClick: (e: React.MouseEvent) => {
+          childProps.onClick?.(e)
+          if (visible) hide()
+          else show()
+        },
+        onFocus: (e: React.FocusEvent) => {
+          childProps.onFocus?.(e)
+        },
+        onBlur: (e: React.FocusEvent) => {
+          childProps.onBlur?.(e)
+        },
+      }
+    : {
+        onMouseEnter: (e: React.MouseEvent) => {
+          childProps.onMouseEnter?.(e)
+          show()
+        },
+        onMouseLeave: (e: React.MouseEvent) => {
+          childProps.onMouseLeave?.(e)
+          hide()
+        },
+        onFocus: (e: React.FocusEvent) => {
+          childProps.onFocus?.(e)
+          show()
+        },
+        onBlur: (e: React.FocusEvent) => {
+          childProps.onBlur?.(e)
+          hide()
+        },
+      }
 
   const ariaDescribedBy = describedBy
     ? [childProps['aria-describedby'], id].filter(Boolean).join(' ')
     : childProps['aria-describedby']
 
-  const trigger = isDisabled ? (
+  const triggerEl = isDisabled ? (
     <span
       className="tooltip-trigger-wrap"
       ref={triggerRef as Ref<HTMLSpanElement>}
@@ -248,7 +301,7 @@ export default function Tooltip({
 
   return (
     <>
-      {trigger}
+      {triggerEl}
 
       {visible && (
         <Portal>

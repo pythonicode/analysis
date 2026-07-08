@@ -7,6 +7,8 @@ import { useAppStore } from '../store'
 import { stageRef } from '../stageRef'
 import { simplifyPath } from '../utils/geometry'
 import { importDroppedFiles } from '../utils/files'
+import type { LayoutMode } from '../hooks/useLayoutMode'
+import { usePinchZoom } from '../hooks/usePinchZoom'
 import MapImageLayer from './canvas/MapImageLayer'
 import GpxLayer from './canvas/GpxLayer'
 import DrawingLayer, { type DraftStroke } from './canvas/DrawingLayer'
@@ -16,7 +18,11 @@ const MIN_SCALE = 0.05
 const MAX_SCALE = 8
 const ZOOM_FACTOR = 1.06
 
-export default function CanvasArea() {
+export default function CanvasArea({
+  layoutMode,
+}: {
+  layoutMode: LayoutMode
+}) {
   const activeTool = useAppStore((s) => s.activeTool)
   const mapImage = useAppStore((s) => s.mapImage)
   const viewport = useAppStore((s) => s.viewport)
@@ -28,6 +34,8 @@ export default function CanvasArea() {
   const strokeOpacity = useAppStore((s) => s.strokeOpacity)
   const addPath = useAppStore((s) => s.addPath)
   const addAnnotation = useAppStore((s) => s.addAnnotation)
+  const openAnnotations = useAppStore((s) => s.openAnnotations)
+  const closeAnnotations = useAppStore((s) => s.closeAnnotations)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const middlePanRef = useRef<{
@@ -43,8 +51,20 @@ export default function CanvasArea() {
   const lastFittedSrc = useRef<string | null>(null)
   const erasingRef = useRef(false)
 
+  const isTouch = layoutMode === 'touch'
   const isDrawingTool = activeTool === 'line'
-  const isPanning = activeTool === 'pan' || spaceHeld || middleMouseHeld
+  const isPanning =
+    activeTool === 'pan' ||
+    (!isTouch && (spaceHeld || middleMouseHeld))
+
+  usePinchZoom(
+    containerRef,
+    isTouch,
+    viewport,
+    setViewport,
+    MIN_SCALE,
+    MAX_SCALE,
+  )
 
   useEffect(() => {
     const container = containerRef.current
@@ -57,7 +77,6 @@ export default function CanvasArea() {
     return () => observer.disconnect()
   }, [])
 
-  // Fit the viewport to a newly imported map image
   useEffect(() => {
     if (!mapImage || size.width === 0 || size.height === 0) return
     if (lastFittedSrc.current === mapImage.src) return
@@ -72,7 +91,6 @@ export default function CanvasArea() {
     })
   }, [mapImage, size, setViewport])
 
-  // Keyboard: delete selection, escape deselect, space for temporary pan
   useEffect(() => {
     const isEditableTarget = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement
@@ -85,7 +103,7 @@ export default function CanvasArea() {
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (isEditableTarget(e)) return
-      if (e.code === 'Space') {
+      if (!isTouch && e.code === 'Space') {
         e.preventDefault()
         setSpaceHeld(true)
         return
@@ -117,7 +135,7 @@ export default function CanvasArea() {
     }
 
     const onKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'Space') setSpaceHeld(false)
+      if (!isTouch && e.code === 'Space') setSpaceHeld(false)
     }
 
     window.addEventListener('keydown', onKeyDown)
@@ -126,9 +144,11 @@ export default function CanvasArea() {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
     }
-  }, [])
+  }, [isTouch])
 
   useEffect(() => {
+    if (isTouch) return
+
     const endMiddlePan = () => {
       middlePanRef.current = null
       setMiddleMouseHeld(false)
@@ -140,7 +160,7 @@ export default function CanvasArea() {
 
     window.addEventListener('pointerup', onPointerUp)
     return () => window.removeEventListener('pointerup', onPointerUp)
-  }, [])
+  }, [isTouch])
 
   const attachStage = useCallback((node: Konva.Stage | null) => {
     stageRef.current = node
@@ -173,7 +193,6 @@ export default function CanvasArea() {
     })
   }
 
-  // Removes the drawn path or marker under the pointer; GPX tracks are ignored
   const eraseAtPointer = (stage: Konva.Stage) => {
     const screenPos = stage.getPointerPosition()
     if (!screenPos) return
@@ -200,11 +219,23 @@ export default function CanvasArea() {
     }
   }
 
+  const shouldCloseAnnotations = () => {
+    if (!isTouch) return
+    const active = document.activeElement
+    if (
+      active instanceof HTMLTextAreaElement &&
+      active.classList.contains('annotation-comment-input')
+    ) {
+      return false
+    }
+    closeAnnotations()
+  }
+
   const handlePointerDown = (e: KonvaEventObject<PointerEvent>) => {
     const stage = e.target.getStage()
     if (!stage) return
 
-    if (e.evt.button === 1) {
+    if (!isTouch && e.evt.button === 1) {
       e.evt.preventDefault()
       middlePanRef.current = {
         startX: e.evt.clientX,
@@ -216,10 +247,15 @@ export default function CanvasArea() {
       return
     }
 
-    if (isPanning) return
+    if (isPanning) {
+      shouldCloseAnnotations()
+      return
+    }
     if (e.evt.button !== undefined && e.evt.button !== 0) return
     const pos = stage.getRelativePointerPosition()
     if (!pos) return
+
+    shouldCloseAnnotations()
 
     if (activeTool === 'eraser') {
       erasingRef.current = true
@@ -241,6 +277,7 @@ export default function CanvasArea() {
       }
       addAnnotation(annotation)
       setSelectedId(annotation.id)
+      if (isTouch) openAnnotations()
     } else if (activeTool === 'select' && e.target === stage) {
       setSelectedId(null)
     }
@@ -250,7 +287,7 @@ export default function CanvasArea() {
     const stage = e.target.getStage()
     if (!stage) return
 
-    if (middlePanRef.current) {
+    if (!isTouch && middlePanRef.current) {
       const pan = middlePanRef.current
       setViewport({
         scale: viewport.scale,
@@ -273,7 +310,7 @@ export default function CanvasArea() {
       const pts = draft.points
       const lastX = pts[pts.length - 2]
       const lastY = pts[pts.length - 1]
-      const minDist = 3 / viewport.scale
+      const minDist = (isTouch ? 5 : 3) / viewport.scale
       if (Math.hypot(pos.x - lastX, pos.y - lastY) >= minDist) {
         setDraft({ ...draft, points: [...pts, pos.x, pos.y] })
       }
@@ -281,7 +318,7 @@ export default function CanvasArea() {
   }
 
   const handlePointerUp = (e: KonvaEventObject<PointerEvent>) => {
-    if (e.evt.button === 1) {
+    if (!isTouch && e.evt.button === 1) {
       middlePanRef.current = null
       setMiddleMouseHeld(false)
     }
@@ -321,7 +358,7 @@ export default function CanvasArea() {
 
   return (
     <main
-      className="canvas-area"
+      className={`canvas-area${isTouch ? ' canvas-area-touch' : ''}`}
       ref={containerRef}
       style={{ cursor }}
       onDragOver={(e) => e.preventDefault()}
@@ -356,9 +393,9 @@ export default function CanvasArea() {
         onDragEnd={syncViewportFromStage}
       >
         <MapImageLayer />
-        <GpxLayer />
-        <DrawingLayer draft={draft} />
-        <MarkersLayer />
+        <GpxLayer layoutMode={layoutMode} />
+        <DrawingLayer draft={draft} layoutMode={layoutMode} />
+        <MarkersLayer layoutMode={layoutMode} />
       </Stage>
 
       {!mapImage && (
@@ -366,7 +403,11 @@ export default function CanvasArea() {
           <div className="canvas-empty-card">
             <ImagePlus size={40} aria-hidden />
             <h2>No map loaded</h2>
-            <p>Import a map image to get started, or drop a file here.</p>
+            <p>
+              {isTouch
+                ? 'Import a map image from the menu to get started.'
+                : 'Import a map image to get started, or drop a file here.'}
+            </p>
           </div>
         </div>
       )}

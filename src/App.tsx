@@ -4,25 +4,45 @@ import ToolPalette from './components/ToolPalette'
 import CanvasArea from './components/CanvasArea'
 import AnnotationsPanel from './components/AnnotationsPanel'
 import StatusBar from './components/StatusBar'
-import MobileNotice from './components/MobileNotice'
-import { useIsMobile } from './hooks/useIsMobile'
+import BottomToolBar from './components/BottomToolBar'
+import TouchHints from './components/TouchHints'
+import ToastBanner from './components/ToastBanner'
+import { useLayoutMode } from './hooks/useLayoutMode'
+import { useEffect, useRef } from 'react'
+import { useAppStore } from './store'
 
 function App() {
-  const isMobile = useIsMobile()
+  const layoutMode = useLayoutMode()
+  const setActiveTool = useAppStore((s) => s.setActiveTool)
+  const prevLayoutRef = useRef(layoutMode)
 
-  if (isMobile) {
-    return <MobileNotice />
-  }
+  useEffect(() => {
+    if (layoutMode === 'touch' && prevLayoutRef.current !== 'touch') {
+      setActiveTool('pan')
+    }
+    prevLayoutRef.current = layoutMode
+  }, [layoutMode, setActiveTool])
 
   return (
-    <div className="app-shell">
-      <TopBar />
+    <div className="app-shell" data-layout={layoutMode}>
+      <TopBar layoutMode={layoutMode} />
+      <TouchHints />
+      <ToastBanner />
       <div className="app-main">
-        <ToolPalette />
-        <CanvasArea />
-        <AnnotationsPanel />
+        {layoutMode !== 'touch' && <ToolPalette layoutMode={layoutMode} />}
+        <CanvasArea layoutMode={layoutMode} />
+        {layoutMode === 'desktop' && (
+          <AnnotationsPanel variant="sidebar" layoutMode={layoutMode} />
+        )}
+        {layoutMode === 'compact' && (
+          <AnnotationsPanel variant="drawer" layoutMode={layoutMode} />
+        )}
+        {layoutMode === 'touch' && (
+          <AnnotationsPanel variant="sheet" layoutMode={layoutMode} />
+        )}
       </div>
-      <StatusBar />
+      {layoutMode === 'touch' && <BottomToolBar />}
+      <StatusBar layoutMode={layoutMode} />
     </div>
   )
 }

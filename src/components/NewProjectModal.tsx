@@ -2,19 +2,24 @@ import { useEffect } from 'react'
 import { Download, Save, X } from 'lucide-react'
 import { exportPng } from '../utils/export'
 import { saveProjectFile, PROJECT_FILE_EXTENSION } from '../utils/project'
+import type { LayoutMode } from '../hooks/useLayoutMode'
 import Tooltip from './Tooltip'
 
 export default function NewProjectModal({
+  layoutMode,
   canSave,
   canExport,
   onConfirm,
   onClose,
 }: {
+  layoutMode: LayoutMode
   canSave: boolean
   canExport: boolean
   onConfirm: () => void
   onClose: () => void
 }) {
+  const isTouch = layoutMode === 'touch'
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -27,6 +32,30 @@ export default function NewProjectModal({
     onConfirm()
     onClose()
   }
+
+  const saveButton = (
+    <button
+      type="button"
+      className="button"
+      disabled={!canSave}
+      onClick={saveProjectFile}
+    >
+      <Save size={14} aria-hidden />
+      Save
+    </button>
+  )
+
+  const exportButton = (
+    <button
+      type="button"
+      className="button"
+      disabled={!canExport}
+      onClick={exportPng}
+    >
+      <Download size={14} aria-hidden />
+      Export PNG
+    </button>
+  )
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -54,42 +83,37 @@ export default function NewProjectModal({
           export it first if you want to keep a copy.
         </p>
 
-        <div className="modal-actions modal-actions-split">
+        <div
+          className={`modal-actions${isTouch ? ' modal-actions-touch' : ' modal-actions-split'}`}
+        >
           <div className="modal-actions-group">
-            <Tooltip
-              content={
-                canSave
-                  ? `Save project as ${PROJECT_FILE_EXTENSION}`
-                  : 'Nothing to save — import a map or add content first'
-              }
-            >
-              <button
-                type="button"
-                className="button"
-                disabled={!canSave}
-                onClick={saveProjectFile}
-              >
-                <Save size={14} aria-hidden />
-                Save
-              </button>
-            </Tooltip>
-            <Tooltip
-              content={
-                canExport
-                  ? 'Download annotated map'
-                  : 'Import a map image first'
-              }
-            >
-              <button
-                type="button"
-                className="button"
-                disabled={!canExport}
-                onClick={exportPng}
-              >
-                <Download size={14} aria-hidden />
-                Export PNG
-              </button>
-            </Tooltip>
+            {isTouch ? (
+              <>
+                {saveButton}
+                {exportButton}
+              </>
+            ) : (
+              <>
+                <Tooltip
+                  content={
+                    canSave
+                      ? `Save project as ${PROJECT_FILE_EXTENSION}`
+                      : 'Nothing to save — import a map or add content first'
+                  }
+                >
+                  {saveButton}
+                </Tooltip>
+                <Tooltip
+                  content={
+                    canExport
+                      ? 'Download annotated map'
+                      : 'Import a map image first'
+                  }
+                >
+                  {exportButton}
+                </Tooltip>
+              </>
+            )}
           </div>
           <div className="modal-actions-group">
             <button type="button" className="button" onClick={onClose}>

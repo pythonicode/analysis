@@ -4,23 +4,27 @@ import { useAppStore } from '../store'
 import { stageRef } from '../stageRef'
 import { markerLabel } from '../utils/labels'
 import type { Annotation } from '../types'
+import type { LayoutMode } from '../hooks/useLayoutMode'
 import Tooltip from './Tooltip'
+import BottomSheet from './BottomSheet'
+import SlideDrawer from './SlideDrawer'
 
 function AnnotationItem({
   annotation,
   index,
   selected,
+  layoutMode,
 }: {
   annotation: Annotation
   index: number
   selected: boolean
+  layoutMode: LayoutMode
 }) {
   const setSelectedId = useAppStore((s) => s.setSelectedId)
   const updateAnnotation = useAppStore((s) => s.updateAnnotation)
   const removeAnnotation = useAppStore((s) => s.removeAnnotation)
   const commentInputRef = useRef<HTMLTextAreaElement>(null)
 
-  // Focus the comment input for freshly placed markers
   useEffect(() => {
     if (selected && annotation.comment === '') {
       commentInputRef.current?.focus()
@@ -39,6 +43,20 @@ function AnnotationItem({
       y: stage.height() / 2 - annotation.position.y * viewport.scale,
     })
   }
+
+  const deleteButton = (
+    <button
+      type="button"
+      className="annotation-delete"
+      aria-label={`Delete annotation ${markerLabel(index)}`}
+      onClick={(e) => {
+        e.stopPropagation()
+        removeAnnotation(annotation.id)
+      }}
+    >
+      <Trash2 size={14} aria-hidden />
+    </button>
+  )
 
   return (
     <li
@@ -65,31 +83,27 @@ function AnnotationItem({
               updateAnnotation(annotation.id, { comment: e.target.value })
             }
           />
-          <Tooltip content="Remove this marker">
-            <button
-              type="button"
-              className="annotation-delete"
-              aria-label={`Delete annotation ${markerLabel(index)}`}
-              onClick={(e) => {
-                e.stopPropagation()
-                removeAnnotation(annotation.id)
-              }}
-            >
-              <Trash2 size={14} aria-hidden />
-            </button>
-          </Tooltip>
+          {layoutMode === 'touch' ? (
+            deleteButton
+          ) : (
+            <Tooltip content="Remove this marker">{deleteButton}</Tooltip>
+          )}
         </div>
       </div>
     </li>
   )
 }
 
-export default function AnnotationsPanel() {
+function AnnotationsContent({
+  layoutMode,
+}: {
+  layoutMode: LayoutMode
+}) {
   const annotations = useAppStore((s) => s.annotations)
   const selectedId = useAppStore((s) => s.selectedId)
 
   return (
-    <aside className="annotations-panel">
+    <>
       <div className="panel-header">
         <MessageSquareText size={16} aria-hidden />
         <h2>Annotations</h2>
@@ -107,15 +121,77 @@ export default function AnnotationsPanel() {
               annotation={annotation}
               index={index}
               selected={selectedId === annotation.id}
+              layoutMode={layoutMode}
             />
           ))}
         </ul>
       )}
 
       <p className="panel-hint">
-        Click a marker letter to centre it on the map. Comments are included in
-        the exported image.
+        {layoutMode === 'touch'
+          ? 'Tap a marker letter to centre it on the map. Comments are included in the exported image.'
+          : 'Click a marker letter to centre it on the map. Comments are included in the exported image.'}
       </p>
-    </aside>
+    </>
+  )
+}
+
+export default function AnnotationsPanel({
+  variant,
+  layoutMode,
+}: {
+  variant: 'sidebar' | 'drawer' | 'sheet'
+  layoutMode: LayoutMode
+}) {
+  const annotations = useAppStore((s) => s.annotations)
+  const annotationsOpen = useAppStore((s) => s.annotationsOpen)
+  const toggleAnnotations = useAppStore((s) => s.toggleAnnotations)
+  const closeAnnotations = useAppStore((s) => s.closeAnnotations)
+
+  if (variant === 'sidebar') {
+    return (
+      <aside className="annotations-panel">
+        <AnnotationsContent layoutMode={layoutMode} />
+      </aside>
+    )
+  }
+
+  if (variant === 'drawer') {
+    return (
+      <>
+        <button
+          type="button"
+          className="annotation-toggle"
+          aria-label="Toggle annotations"
+          aria-expanded={annotationsOpen}
+          onClick={toggleAnnotations}
+        >
+          <MessageSquareText size={16} aria-hidden />
+          <span>Notes</span>
+          {annotations.length > 0 && (
+            <span className="annotation-toggle-badge">{annotations.length}</span>
+          )}
+        </button>
+        <SlideDrawer
+          title="Annotations"
+          open={annotationsOpen}
+          onClose={closeAnnotations}
+        >
+          <div className="annotations-panel annotations-panel-drawer">
+            <AnnotationsContent layoutMode={layoutMode} />
+          </div>
+        </SlideDrawer>
+      </>
+    )
+  }
+
+  if (!annotationsOpen) return null
+
+  return (
+    <BottomSheet title="Annotations" onClose={closeAnnotations}>
+      <div className="annotations-panel annotations-panel-sheet">
+        <AnnotationsContent layoutMode={layoutMode} />
+      </div>
+    </BottomSheet>
   )
 }

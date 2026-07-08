@@ -1,34 +1,48 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Circle, Group, Layer, Line } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import { useAppStore } from '../../store'
 import { nearestVertex, warpPoints } from '../../utils/warp'
 import { resolveGpxStrokeWidth } from '../../utils/gpx'
 import type { GpxTrack } from '../../types'
+import type { LayoutMode } from '../../hooks/useLayoutMode'
+
+const LONG_PRESS_MS = 500
 
 function Track({
   track,
   adjustMode,
   strokeWidth,
   pinRadius,
+  isTouch,
 }: {
   track: GpxTrack
   adjustMode: boolean
   strokeWidth: number
   pinRadius: number
+  isTouch: boolean
 }) {
   const updateTrack = useAppStore((s) => s.updateTrack)
-  // Local override so the line warps live while a pin is dragged,
-  // committed to the store (one undo step) only on drag end
   const [dragAnchors, setDragAnchors] = useState<typeof track.anchors | null>(
     null,
   )
+  const longPressTimerRef = useRef<number | null>(null)
+  const longPressIndexRef = useRef<number | null>(null)
+
   const anchors = dragAnchors ?? track.anchors
 
   const warped = useMemo(
     () => warpPoints(track.points, anchors),
     [track.points, anchors],
   )
+
+  const clearLongPress = () => {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+    longPressIndexRef.current = null
+  }
 
   const addAnchorAtPointer = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
     if (!adjustMode) return
@@ -41,7 +55,6 @@ function Track({
       x: track.points[vertex.index * 2],
       y: track.points[vertex.index * 2 + 1],
     }
-    // One anchor per source vertex
     const duplicate = track.anchors.some(
       (a) => a.source.x === source.x && a.source.y === source.y,
     )
@@ -62,7 +75,7 @@ function Track({
   }
 
   const commitPin = (index: number, e: KonvaEventObject<DragEvent>) => {
-    const next = track.anchors.map((a, i) =>
+    const next = anchors.map((a, i) =>
       i === index ? { ...a, target: { x: e.target.x(), y: e.target.y() } } : a,
     )
     setDragAnchors(null)
@@ -84,6 +97,18 @@ function Track({
     if (!adjustMode) return
     removePin(index)
   }
+
+  const startLongPress = (index: number) => {
+    if (!isTouch || !adjustMode) return
+    clearLongPress()
+    longPressIndexRef.current = index
+    longPressTimerRef.current = window.setTimeout(() => {
+      removePin(index)
+      longPressTimerRef.current = null
+    }, LONG_PRESS_MS)
+  }
+
+  const hitRadius = isTouch ? Math.max(pinRadius, 20) : pinRadius
 
   return (
     <Group>
@@ -107,37 +132,51 @@ function Track({
             x={anchor.target.x}
             y={anchor.target.y}
             draggable
+            onDragStart={() => {
+              clearLongPress()
+            }}
             onDragMove={(e) => movePin(index, e)}
             onDragEnd={(e) => commitPin(index, e)}
             onContextMenu={(e) => handlePinContextMenu(index, e)}
             onDblClick={() => removePin(index)}
             onDblTap={() => removePin(index)}
+            onPointerDown={() => startLongPress(index)}
+            onPointerUp={clearLongPress}
+            onPointerLeave={clearLongPress}
           >
             <Circle
-              radius={pinRadius}
+              radius={hitRadius}
               fill="#ffffff"
               stroke={track.color}
-              strokeWidth={pinRadius * 0.45}
+              strokeWidth={hitRadius * 0.45}
               shadowColor="#000000"
-              shadowBlur={pinRadius * 0.6}
+              shadowBlur={hitRadius * 0.6}
               shadowOpacity={0.35}
             />
-            <Circle radius={pinRadius * 0.3} fill={track.color} listening={false} />
+            <Circle
+              radius={hitRadius * 0.3}
+              fill={track.color}
+              listening={false}
+            />
           </Group>
         ))}
     </Group>
   )
 }
 
-export default function GpxLayer() {
+export default function GpxLayer({
+  layoutMode,
+}: {
+  layoutMode: LayoutMode
+}) {
   const tracks = useAppStore((s) => s.tracks)
   const mapImage = useAppStore((s) => s.mapImage)
   const activeTool = useAppStore((s) => s.activeTool)
   const viewportScale = useAppStore((s) => s.viewport.scale)
 
   const adjustMode = activeTool === 'gpx'
-  // Pins keep a constant on-screen size regardless of zoom
-  const pinRadius = 9 / viewportScale
+  const isTouch = layoutMode === 'touch'
+  const pinRadius = (isTouch ? 11 : 9) / viewportScale
 
   return (
     <Layer>
@@ -148,6 +187,7 @@ export default function GpxLayer() {
           adjustMode={adjustMode}
           strokeWidth={resolveGpxStrokeWidth(track, mapImage)}
           pinRadius={pinRadius}
+          isTouch={isTouch}
         />
       ))}
     </Layer>

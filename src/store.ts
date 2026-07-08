@@ -46,6 +46,8 @@ interface AppState extends Snapshot {
   pointer: Point | null
   selectedId: string | null
   importError: string | null
+  annotationsOpen: boolean
+  toastMessage: string | null
 
   past: Snapshot[]
   future: Snapshot[]
@@ -61,6 +63,10 @@ interface AppState extends Snapshot {
   setPointer: (pointer: Point | null) => void
   setSelectedId: (id: string | null) => void
   setImportError: (error: string | null) => void
+  openAnnotations: () => void
+  closeAnnotations: () => void
+  toggleAnnotations: () => void
+  setToastMessage: (message: string | null) => void
 
   addTrack: (track: GpxTrack) => void
   /** Pass a coalesceKey to merge rapid consecutive edits (e.g. slider drags) into one undo step */
@@ -140,6 +146,8 @@ export const useAppStore = create<AppState>()(
   pointer: null,
   selectedId: null,
   importError: null,
+  annotationsOpen: false,
+  toastMessage: null,
 
   past: [],
   future: [],
@@ -154,6 +162,11 @@ export const useAppStore = create<AppState>()(
   setPointer: (pointer) => set({ pointer }),
   setSelectedId: (id) => set({ selectedId: id }),
   setImportError: (error) => set({ importError: error }),
+  openAnnotations: () => set({ annotationsOpen: true }),
+  closeAnnotations: () => set({ annotationsOpen: false }),
+  toggleAnnotations: () =>
+    set((s) => ({ annotationsOpen: !s.annotationsOpen })),
+  setToastMessage: (message) => set({ toastMessage: message }),
 
   addTrack: (track) =>
     set((s) => ({ ...record(s, null), tracks: [...s.tracks, track] })),

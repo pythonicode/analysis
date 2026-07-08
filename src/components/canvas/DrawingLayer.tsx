@@ -2,6 +2,7 @@ import { Layer, Line } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import { useAppStore } from '../../store'
 import type { DrawnPath } from '../../types'
+import type { LayoutMode } from '../../hooks/useLayoutMode'
 
 export interface DraftStroke {
   points: number[]
@@ -10,10 +11,16 @@ export interface DraftStroke {
   opacity: number
 }
 
-/** Light smoothing applied to freehand strokes */
 const STROKE_TENSION = 0.5
+const TOUCH_DRAG_THRESHOLD = 8
 
-export default function DrawingLayer({ draft }: { draft: DraftStroke | null }) {
+export default function DrawingLayer({
+  draft,
+  layoutMode,
+}: {
+  draft: DraftStroke | null
+  layoutMode: LayoutMode
+}) {
   const paths = useAppStore((s) => s.paths)
   const activeTool = useAppStore((s) => s.activeTool)
   const selectedId = useAppStore((s) => s.selectedId)
@@ -22,8 +29,9 @@ export default function DrawingLayer({ draft }: { draft: DraftStroke | null }) {
 
   const selectable = activeTool === 'select'
   const listening = selectable || activeTool === 'eraser'
+  const isTouch = layoutMode === 'touch'
+  const hitMultiplier = isTouch ? 1.5 : 1
 
-  // Dragging moves the node; bake the offset back into the stored points
   const bakeDragOffset = (path: DrawnPath, e: KonvaEventObject<DragEvent>) => {
     const node = e.target
     const dx = node.x()
@@ -44,18 +52,23 @@ export default function DrawingLayer({ draft }: { draft: DraftStroke | null }) {
           stroke={path.color}
           strokeWidth={path.width}
           opacity={path.opacity}
-          hitStrokeWidth={Math.max(path.width * 2, 12)}
+          hitStrokeWidth={Math.max(path.width * 2 * hitMultiplier, 12)}
           tension={STROKE_TENSION}
           lineCap="round"
           lineJoin="round"
           listening={listening}
           draggable={selectable}
+          dragDistance={isTouch ? TOUCH_DRAG_THRESHOLD : 0}
           onClick={() => setSelectedId(path.id)}
           onTap={() => setSelectedId(path.id)}
           onDragStart={() => setSelectedId(path.id)}
           onDragEnd={(e) => bakeDragOffset(path, e)}
           shadowColor="#aa3bff"
-          shadowBlur={selectedId === path.id ? Math.max(path.width * 2, 10) : 0}
+          shadowBlur={
+            selectedId === path.id
+              ? Math.max(path.width * 2 * hitMultiplier, 10)
+              : 0
+          }
         />
       ))}
 
