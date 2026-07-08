@@ -39,41 +39,50 @@ function wrapText(
   return lines
 }
 
-function drawSidebar(
+interface SidebarEntry {
+  annotation: Annotation
+  index: number
+  lines: string[]
+  entryHeight: number
+}
+
+interface SidebarLayout {
+  columnWidth: number
+  columns: SidebarEntry[][]
+  fontSize: number
+  lineHeight: number
+  chipRadius: number
+  pad: number
+}
+
+function columnWidthForMap(mapWidth: number): number {
+  return Math.round(Math.min(Math.max(mapWidth * 0.28, 320), 900))
+}
+
+/** Computes multi-column layout so every annotation fits without truncation. */
+function layoutSidebar(
   ctx: CanvasRenderingContext2D,
   annotations: Annotation[],
-  x: number,
-  width: number,
+  columnWidth: number,
   height: number,
-): void {
-  const pad = width * 0.07
-  const fontSize = Math.max(13, Math.min(width * 0.055, 42))
-  const lineHeight = fontSize * 1.35
-  const chipRadius = fontSize * 0.75
-  const font = 'system-ui, "Segoe UI", Roboto, sans-serif'
+): SidebarLayout {
+  const pad = columnWidth * 0.07
+  const fontSize = Math.max(10, Math.min(columnWidth * 0.042, 28))
+  const lineHeight = fontSize * 1.3
+  const chipRadius = fontSize * 0.7
+  const headerHeight = pad + fontSize + lineHeight * 1.4
+  const entryGap = lineHeight * 0.65
+  const textXOffset = pad + chipRadius * 2 + fontSize * 0.5
+  const textWidth = columnWidth - pad - textXOffset
 
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(x, 0, width, height)
-  ctx.strokeStyle = '#d4d4d8'
-  ctx.lineWidth = Math.max(1, height * 0.001)
-  ctx.beginPath()
-  ctx.moveTo(x, 0)
-  ctx.lineTo(x, height)
-  ctx.stroke()
+  const columns: SidebarEntry[][] = [[]]
+  let col = 0
+  let y = headerHeight
 
-  let y = pad + fontSize
-  ctx.fillStyle = '#18181b'
-  ctx.font = `600 ${fontSize * 1.15}px ${font}`
-  ctx.fillText('Annotations', x + pad, y)
-  y += lineHeight * 1.4
+  ctx.font = `${fontSize}px ${font}`
 
   for (let i = 0; i < annotations.length; i++) {
     const annotation = annotations[i]
-    const label = markerLabel(i)
-    const textX = x + pad + chipRadius * 2 + fontSize * 0.6
-    const textWidth = x + width - pad - textX
-
-    ctx.font = `${fontSize}px ${font}`
     const lines = wrapText(
       ctx,
       annotation.comment || '(no comment)',
@@ -82,33 +91,84 @@ function drawSidebar(
     const entryHeight = Math.max(lines.length * lineHeight, chipRadius * 2)
 
     if (y + entryHeight > height - pad) {
-      ctx.fillStyle = '#71717a'
-      ctx.font = `italic ${fontSize * 0.9}px ${font}`
-      ctx.fillText(`+ ${annotations.length - i} more…`, x + pad, y + fontSize)
-      return
+      col++
+      columns[col] = []
+      y = pad
     }
 
-    // Letter chip matching the on-map marker colour
-    const chipY = y + chipRadius
-    ctx.fillStyle = annotation.color
-    ctx.beginPath()
-    ctx.arc(x + pad + chipRadius, chipY, chipRadius, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.fillStyle = '#ffffff'
-    ctx.font = `700 ${chipRadius * (label.length > 1 ? 0.85 : 1.1)}px ${font}`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(label, x + pad + chipRadius, chipY)
-    ctx.textAlign = 'left'
-    ctx.textBaseline = 'alphabetic'
+    columns[col].push({ annotation, index: i, lines, entryHeight })
+    y += entryHeight + entryGap
+  }
 
-    ctx.fillStyle = annotation.comment ? '#18181b' : '#71717a'
-    ctx.font = `${fontSize}px ${font}`
-    for (let l = 0; l < lines.length; l++) {
-      ctx.fillText(lines[l], textX, y + fontSize * 0.9 + l * lineHeight)
+  return { columnWidth, columns, fontSize, lineHeight, chipRadius, pad }
+}
+
+function drawSidebar(
+  ctx: CanvasRenderingContext2D,
+  layout: SidebarLayout,
+  x: number,
+  height: number,
+): void {
+  const { columnWidth, columns, fontSize, lineHeight, chipRadius, pad } = layout
+  const font = 'system-ui, "Segoe UI", Roboto, sans-serif'
+  const headerHeight = pad + fontSize + lineHeight * 1.4
+  const entryGap = lineHeight * 0.65
+  const totalWidth = columnWidth * columns.length
+
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(x, 0, totalWidth, height)
+  ctx.strokeStyle = '#d4d4d8'
+  ctx.lineWidth = Math.max(1, height * 0.001)
+  ctx.beginPath()
+  ctx.moveTo(x, 0)
+  ctx.lineTo(x, height)
+  ctx.stroke()
+
+  for (let c = 0; c < columns.length; c++) {
+    const colX = x + c * columnWidth
+    let y = c === 0 ? headerHeight : pad
+
+    if (c === 0) {
+      ctx.fillStyle = '#18181b'
+      ctx.font = `600 ${fontSize * 1.1}px ${font}`
+      ctx.fillText('Annotations', colX + pad, pad + fontSize)
     }
 
-    y += entryHeight + lineHeight * 0.8
+    if (c > 0) {
+      ctx.strokeStyle = '#e4e4e7'
+      ctx.beginPath()
+      ctx.moveTo(colX, 0)
+      ctx.lineTo(colX, height)
+      ctx.stroke()
+    }
+
+    const textX = colX + pad + chipRadius * 2 + fontSize * 0.5
+
+    for (const entry of columns[c]) {
+      const { annotation, index, lines, entryHeight } = entry
+      const label = markerLabel(index)
+
+      const chipY = y + chipRadius
+      ctx.fillStyle = annotation.color
+      ctx.beginPath()
+      ctx.arc(colX + pad + chipRadius, chipY, chipRadius, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = '#ffffff'
+      ctx.font = `700 ${chipRadius * (label.length > 1 ? 0.85 : 1.1)}px ${font}`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(label, colX + pad + chipRadius, chipY)
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'alphabetic'
+
+      ctx.fillStyle = annotation.comment ? '#18181b' : '#71717a'
+      ctx.font = `${fontSize}px ${font}`
+      for (let l = 0; l < lines.length; l++) {
+        ctx.fillText(lines[l], textX, y + fontSize * 0.85 + l * lineHeight)
+      }
+
+      y += entryHeight + entryGap
+    }
   }
 }
 
@@ -179,20 +239,30 @@ export function exportPng(): void {
 
     const mapDataUrl = captureMapAtNativeResolution(stage, mapImage)
 
-    const sidebarWidth =
-      annotations.length > 0
-        ? Math.round(Math.min(Math.max(mapImage.width * 0.28, 320), 900))
-        : 0
+    const columnWidth =
+      annotations.length > 0 ? columnWidthForMap(mapImage.width) : 0
 
     const baseName = mapImage.name.replace(/\.[^.]+$/, '') || 'map'
     const anchor = document.createElement('a')
 
-    if (sidebarWidth === 0) {
+    if (columnWidth === 0) {
       anchor.href = mapDataUrl
       anchor.download = `${baseName}-analysis.png`
       anchor.click()
       return
     }
+
+    const measureCanvas = document.createElement('canvas')
+    const measureCtx = measureCanvas.getContext('2d')
+    if (!measureCtx) return
+
+    const layout = layoutSidebar(
+      measureCtx,
+      annotations,
+      columnWidth,
+      mapImage.height,
+    )
+    const sidebarWidth = columnWidth * layout.columns.length
 
     const canvas = document.createElement('canvas')
     canvas.width = mapImage.width + sidebarWidth
@@ -204,7 +274,7 @@ export function exportPng(): void {
     ctx.imageSmoothingEnabled = false
     ctx.drawImage(mapRender, 0, 0)
 
-    drawSidebar(ctx, annotations, mapImage.width, sidebarWidth, mapImage.height)
+    drawSidebar(ctx, layout, mapImage.width, mapImage.height)
 
     anchor.href = canvas.toDataURL('image/png')
     anchor.download = `${baseName}-analysis.png`
