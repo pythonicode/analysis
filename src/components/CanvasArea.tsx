@@ -14,9 +14,8 @@ import MapImageLayer from './canvas/MapImageLayer'
 import GpxLayer from './canvas/GpxLayer'
 import DrawingLayer, { type DraftStroke } from './canvas/DrawingLayer'
 import MarkersLayer from './canvas/MarkersLayer'
+import { MAX_SCALE, MIN_SCALE } from '../utils/viewport'
 
-const MIN_SCALE = 0.05
-const MAX_SCALE = 8
 const ZOOM_FACTOR = 1.06
 
 export default function CanvasArea({
@@ -381,33 +380,35 @@ export default function CanvasArea({
         }
       }}
     >
-      <Stage
-        ref={attachStage}
-        width={size.width}
-        height={size.height}
-        scaleX={viewport.scale}
-        scaleY={viewport.scale}
-        x={viewport.x}
-        y={viewport.y}
-        draggable={isPanning}
-        onWheel={handleWheel}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={() => {
-          setPointer(null)
-          middlePanRef.current = null
-          setMiddleMouseHeld(false)
-          commitDraft()
-        }}
-        onDragMove={syncViewportFromStage}
-        onDragEnd={syncViewportFromStage}
-      >
-        <MapImageLayer />
-        <GpxLayer layoutMode={layoutMode} />
-        <DrawingLayer draft={draft} layoutMode={layoutMode} />
-        <MarkersLayer layoutMode={layoutMode} />
-      </Stage>
+      {size.width > 0 && size.height > 0 && (
+        <Stage
+          ref={attachStage}
+          width={size.width}
+          height={size.height}
+          scaleX={viewport.scale}
+          scaleY={viewport.scale}
+          x={viewport.x}
+          y={viewport.y}
+          draggable={isPanning}
+          onWheel={handleWheel}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={() => {
+            setPointer(null)
+            middlePanRef.current = null
+            setMiddleMouseHeld(false)
+            commitDraft()
+          }}
+          onDragMove={syncViewportFromStage}
+          onDragEnd={syncViewportFromStage}
+        >
+          <MapImageLayer />
+          <GpxLayer layoutMode={layoutMode} />
+          <DrawingLayer draft={draft} layoutMode={layoutMode} />
+          <MarkersLayer layoutMode={layoutMode} />
+        </Stage>
+      )}
 
       {!mapImage && (
         <div className="canvas-empty">

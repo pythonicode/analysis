@@ -11,6 +11,7 @@ import type {
   Tool,
   Viewport,
 } from './types'
+import { clampViewport, DEFAULT_VIEWPORT } from './utils/viewport'
 
 /** The undoable part of the state: the analysis content itself. */
 interface Snapshot {
@@ -162,7 +163,7 @@ export const useAppStore = create<AppState>()(
   setStrokeWidth: (width) => set({ strokeWidth: width }),
   setStrokeColor: (color) => set({ strokeColor: color }),
   setStrokeOpacity: (opacity) => set({ strokeOpacity: opacity }),
-  setViewport: (viewport) => set({ viewport }),
+  setViewport: (viewport) => set({ viewport: clampViewport(viewport) }),
   setPointer: (pointer) => set({ pointer }),
   setSelectedId: (id) => set({ selectedId: id }),
   setImportError: (error) => set({ importError: error }),
@@ -285,9 +286,18 @@ export const useAppStore = create<AppState>()(
         strokeWidth: s.strokeWidth,
         strokeColor: s.strokeColor,
         strokeOpacity: s.strokeOpacity,
-        viewport: s.viewport,
         markerDisplayMode: s.markerDisplayMode,
       }),
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<AppState> | undefined
+        if (!persisted) return currentState
+        return {
+          ...currentState,
+          ...persisted,
+          // Refit on open; avoids rendering with a stale zoom from persistence.
+          viewport: DEFAULT_VIEWPORT,
+        }
+      },
     },
   ),
 )

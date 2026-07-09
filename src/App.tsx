@@ -7,6 +7,7 @@ import StatusBar from './components/StatusBar'
 import BottomToolBar from './components/BottomToolBar'
 import TouchHints from './components/TouchHints'
 import ToastBanner from './components/ToastBanner'
+import PwaUpdateBanner from './components/PwaUpdateBanner'
 import { useLayoutMode } from './hooks/useLayoutMode'
 import { useEffect, useRef } from 'react'
 import { useAppStore } from './store'
@@ -28,6 +29,7 @@ function App() {
       <TopBar layoutMode={layoutMode} />
       <TouchHints />
       <ToastBanner />
+      <PwaUpdateBanner />
       <div className="app-main">
         {layoutMode !== 'touch' && <ToolPalette layoutMode={layoutMode} />}
         <CanvasArea layoutMode={layoutMode} />

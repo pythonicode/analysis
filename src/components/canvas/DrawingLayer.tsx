@@ -3,6 +3,7 @@ import type { KonvaEventObject } from 'konva/lib/Node'
 import { useAppStore } from '../../store'
 import type { DrawnPath } from '../../types'
 import type { LayoutMode } from '../../hooks/useLayoutMode'
+import { canUseShadow } from '../../utils/viewport'
 
 export interface DraftStroke {
   points: number[]
@@ -31,6 +32,7 @@ export default function DrawingLayer({
   const listening = selectable || activeTool === 'eraser'
   const isTouch = layoutMode === 'touch'
   const hitMultiplier = isTouch ? 1.5 : 1
+  const viewportScale = useAppStore((s) => s.viewport.scale)
 
   const bakeDragOffset = (path: DrawnPath, e: KonvaEventObject<DragEvent>) => {
     const node = e.target
@@ -44,7 +46,15 @@ export default function DrawingLayer({
 
   return (
     <Layer>
-      {paths.map((path) => (
+      {paths.map((path) => {
+        const selectionShadow =
+          selectedId === path.id &&
+          canUseShadow(path.width * 2, viewportScale)
+        const shadowBlur = selectionShadow
+          ? Math.max(path.width * 2 * hitMultiplier, 10)
+          : 0
+
+        return (
         <Line
           key={path.id}
           id={path.id}
@@ -63,14 +73,11 @@ export default function DrawingLayer({
           onTap={() => setSelectedId(path.id)}
           onDragStart={() => setSelectedId(path.id)}
           onDragEnd={(e) => bakeDragOffset(path, e)}
-          shadowColor="#aa3bff"
-          shadowBlur={
-            selectedId === path.id
-              ? Math.max(path.width * 2 * hitMultiplier, 10)
-              : 0
-          }
+          shadowColor={selectionShadow ? '#aa3bff' : undefined}
+          shadowBlur={shadowBlur}
         />
-      ))}
+        )
+      })}
 
       {draft && draft.points.length >= 4 && (
         <Line

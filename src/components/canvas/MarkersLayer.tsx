@@ -13,6 +13,7 @@ import {
   measureCommentBox,
   textWidthFromRightEdge,
 } from '../../utils/markerComments'
+import { canUseShadow } from '../../utils/viewport'
 import type { Annotation } from '../../types'
 import type { LayoutMode } from '../../hooks/useLayoutMode'
 
@@ -128,6 +129,7 @@ function CommentBox({
   const label = markerLabel(index)
   const isTouch = layoutMode === 'touch'
   const hitPadding = isTouch ? Math.max(6 / viewportScale, 3) : 0
+  const useShadow = canUseShadow(width, viewportScale)
 
   return (
     <>
@@ -140,10 +142,10 @@ function CommentBox({
         stroke={selected ? '#08060d' : '#c4c4cc'}
         strokeWidth={selected ? 1.5 : 1}
         cornerRadius={4}
-        shadowColor="#000000"
-        shadowBlur={4}
-        shadowOpacity={0.22}
-        shadowOffsetY={1}
+        shadowColor={useShadow ? '#000000' : undefined}
+        shadowBlur={useShadow ? 4 : 0}
+        shadowOpacity={useShadow ? 0.22 : 0}
+        shadowOffsetY={useShadow ? 1 : 0}
         hitStrokeWidth={hitPadding}
       />
       <Text
@@ -301,6 +303,7 @@ export default function MarkersLayer({
         const label = markerLabel(index)
         const previewTextWidth = previewWidths[annotation.id]
         const isResizing = resizingId === annotation.id
+        const markerShadow = canUseShadow(radius * 2, viewportScale)
 
         return (
           <Group
@@ -332,9 +335,9 @@ export default function MarkersLayer({
                 stroke={selected ? '#08060d' : '#ffffff'}
                 strokeWidth={radius * (selected ? 0.25 : 0.15)}
                 hitStrokeWidth={Math.max(radius * hitMultiplier, 10)}
-                shadowColor="#000000"
-                shadowBlur={radius * 0.4}
-                shadowOpacity={0.3}
+                shadowColor={markerShadow ? '#000000' : undefined}
+                shadowBlur={markerShadow ? radius * 0.4 : 0}
+                shadowOpacity={markerShadow ? 0.3 : 0}
               />
             )}
             {!showComments && (

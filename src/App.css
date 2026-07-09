@@ -894,6 +894,40 @@
   cursor: pointer;
 }
 
+.pwa-update-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-h);
+  background: var(--accent-bg);
+  border-bottom: 1px solid var(--accent-border);
+}
+
+.pwa-update-banner span {
+  flex: 1;
+}
+
+.pwa-update-banner-action {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.pwa-update-banner-dismiss {
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 /* ---------- Modal ---------- */
 
 .modal-backdrop {

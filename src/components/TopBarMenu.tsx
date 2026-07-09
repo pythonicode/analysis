@@ -7,6 +7,7 @@ import {
   Image,
   Menu,
   MoreHorizontal,
+  RefreshCw,
   Route,
   Save,
 } from 'lucide-react'
@@ -117,6 +118,7 @@ export function buildOverflowActions(opts: {
   hasTracks: boolean
   canSave: boolean
   canInstall: boolean
+  updateAvailable: boolean
   onImportImage: () => void
   onImportGpx: () => void
   onEditGpx: () => void
@@ -125,8 +127,17 @@ export function buildOverflowActions(opts: {
   onSave: () => void
   onExport: () => void
   onInstall: () => void
+  onUpdate: () => void
 }): TopBarMenuAction[] {
   return [
+    {
+      id: 'update',
+      label: 'Update App',
+      icon: <RefreshCw size={16} aria-hidden />,
+      onClick: opts.onUpdate,
+      primary: true,
+      hidden: !opts.updateAvailable,
+    },
     {
       id: 'import-image',
       label: opts.mapImage ? 'Edit Image' : 'Import Image',

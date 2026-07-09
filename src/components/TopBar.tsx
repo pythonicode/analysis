@@ -7,6 +7,7 @@ import {
   FolderOpen,
   Image,
   Redo2,
+  RefreshCw,
   Route,
   Save,
   Undo2,
@@ -17,6 +18,7 @@ import { importGpxFile, importImageFile } from '../utils/files'
 import { exportPng } from '../utils/export'
 import { openProjectFile, saveProjectFile, PROJECT_FILE_EXTENSION } from '../utils/project'
 import { usePwaInstall } from '../hooks/usePwaInstall'
+import { usePwaUpdate } from '../hooks/usePwaUpdate'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import EditGpxModal from './EditGpxModal'
 import NewProjectModal from './NewProjectModal'
@@ -48,6 +50,7 @@ export default function TopBar({
   const [gpxModalOpen, setGpxModalOpen] = useState(false)
   const [newProjectModalOpen, setNewProjectModalOpen] = useState(false)
   const { canInstall, install } = usePwaInstall()
+  const { updateAvailable, applyUpdate } = usePwaUpdate()
 
   const isTouch = layoutMode === 'touch'
   const isCompact = layoutMode === 'compact'
@@ -66,6 +69,7 @@ export default function TopBar({
     hasTracks,
     canSave,
     canInstall,
+    updateAvailable,
     onImportImage: () => imageInputRef.current?.click(),
     onImportGpx: () => gpxInputRef.current?.click(),
     onEditGpx: () => setGpxModalOpen(true),
@@ -74,6 +78,7 @@ export default function TopBar({
     onSave: saveProjectFile,
     onExport: exportPng,
     onInstall: () => void install(),
+    onUpdate: applyUpdate,
   })
 
   const errorBanner = importError && (
@@ -260,6 +265,18 @@ export default function TopBar({
                 <span className="button-label">Export PNG</span>
               </button>
             </Tooltip>
+            {updateAvailable && (
+              <Tooltip content="Reload to use the latest version">
+                <button
+                  type="button"
+                  className="button button-primary"
+                  onClick={applyUpdate}
+                >
+                  <RefreshCw size={16} aria-hidden />
+                  <span className="button-label">Update App</span>
+                </button>
+              </Tooltip>
+            )}
             {canInstall && (
               <Tooltip content="Install O-Analysis as a desktop app">
                 <button
