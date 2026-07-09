@@ -1,4 +1,5 @@
 import { useAppStore, type ProjectData } from '../store'
+import { AnalyticsEvents, trackEvent } from '../analytics'
 
 const PROJECT_FORMAT = 'map-analysis'
 const PROJECT_VERSION = 1
@@ -78,6 +79,12 @@ export function saveProjectFile(): void {
   anchor.download = `${baseName}${PROJECT_FILE_EXTENSION}`
   anchor.click()
   URL.revokeObjectURL(url)
+
+  trackEvent(AnalyticsEvents.SAVE_PROJECT, {
+    has_map: mapImage !== null,
+    track_count: tracks.length,
+    annotation_count: annotations.length,
+  })
 }
 
 /** Loads project data parsed from JSON text. */
@@ -103,6 +110,7 @@ export async function openSampleProject(): Promise<void> {
       throw new Error('Sample project not found')
     }
     loadProjectFromText(await response.text())
+    trackEvent(AnalyticsEvents.OPEN_SAMPLE_PROJECT)
   } catch (error) {
     setImportError(
       error instanceof Error ? error.message : 'Failed to load sample project',
@@ -111,7 +119,10 @@ export async function openSampleProject(): Promise<void> {
 }
 
 /** Loads a project from a .anal file. */
-export async function openProjectFile(file: File): Promise<void> {
+export async function openProjectFile(
+  file: File,
+  source: 'file_picker' | 'drop' = 'file_picker',
+): Promise<void> {
   const { setImportError } = useAppStore.getState()
   setImportError(null)
 
@@ -122,6 +133,13 @@ export async function openProjectFile(file: File): Promise<void> {
 
   try {
     loadProjectFromText(await file.text())
+    const { mapImage, tracks, annotations } = useAppStore.getState()
+    trackEvent(AnalyticsEvents.OPEN_PROJECT, {
+      source,
+      has_map: mapImage !== null,
+      track_count: tracks.length,
+      annotation_count: annotations.length,
+    })
   } catch (error) {
     setImportError(
       error instanceof Error ? error.message : 'Failed to open project file',

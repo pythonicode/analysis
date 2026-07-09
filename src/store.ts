@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware'
 import { del, get, set as idbSet } from 'idb-keyval'
+import { AnalyticsEvents, trackEvent } from './analytics'
 import type {
   Annotation,
   DrawnPath,
@@ -233,7 +234,8 @@ export const useAppStore = create<AppState>()(
       importError: null,
     }),
 
-  newProject: () =>
+  newProject: () => {
+    trackEvent(AnalyticsEvents.NEW_PROJECT)
     set({
       activeTool: 'select',
       mapImage: null,
@@ -247,7 +249,8 @@ export const useAppStore = create<AppState>()(
       past: [],
       future: [],
       lastCoalesceKey: null,
-    }),
+    })
+  },
 
   undo: () =>
     set((s) => {

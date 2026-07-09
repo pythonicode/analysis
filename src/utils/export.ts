@@ -1,5 +1,6 @@
 import { stageRef } from '../stageRef'
 import { useAppStore } from '../store'
+import { AnalyticsEvents, trackEvent } from '../analytics'
 import { markerLabel } from './labels'
 import type { Annotation } from '../types'
 
@@ -250,6 +251,10 @@ export function exportPng(): void {
       anchor.href = mapDataUrl
       anchor.download = `${baseName}-analysis.png`
       anchor.click()
+      trackEvent(AnalyticsEvents.EXPORT_PNG, {
+        annotation_count: 0,
+        has_sidebar: false,
+      })
       return
     }
 
@@ -280,5 +285,9 @@ export function exportPng(): void {
     anchor.href = canvas.toDataURL('image/png')
     anchor.download = `${baseName}-analysis.png`
     anchor.click()
+    trackEvent(AnalyticsEvents.EXPORT_PNG, {
+      annotation_count: annotations.length,
+      has_sidebar: true,
+    })
   })()
 }

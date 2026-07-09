@@ -9,3 +9,13 @@ interface BeforeInstallPromptEvent extends Event {
 interface WindowEventMap {
   beforeinstallprompt: BeforeInstallPromptEvent
 }
+
+interface Window {
+  stonks?: {
+    event: (
+      name: string,
+      pathOrProps?: string | Record<string, string>,
+      props?: Record<string, string>,
+    ) => void
+  }
+}

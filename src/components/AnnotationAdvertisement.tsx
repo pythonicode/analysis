@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { pickAdvertisement } from '../advertisements'
+import { AnalyticsEvents, trackEvent } from '../analytics'
 import { usePrefersDarkScheme } from '../hooks/usePrefersDarkScheme'
 
 export default function AnnotationAdvertisement() {
@@ -20,6 +21,7 @@ export default function AnnotationAdvertisement() {
         target="_blank"
         rel="noopener noreferrer"
         aria-label={ad.alt}
+        onClick={() => trackEvent(AnalyticsEvents.ADVERTISEMENT_CLICK, { ad_id: ad.id })}
       >
         <img src={imageSrc} alt="" />
       </a>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { AnalyticsEvents, trackEvent } from '../analytics'
 
 export function usePwaInstall() {
   const [installPrompt, setInstallPrompt] =
@@ -43,6 +44,7 @@ export function usePwaInstall() {
     setInstallPrompt(null)
 
     if (outcome === 'accepted') {
+      trackEvent(AnalyticsEvents.INSTALL_APP)
       setIsInstalled(true)
       return true
     }

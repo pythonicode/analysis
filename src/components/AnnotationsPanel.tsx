@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
+import { useAutoResizeTextarea } from '../hooks/useAutoResizeTextarea'
 import { MessageSquareText, Trash2 } from 'lucide-react'
 import { useAppStore } from '../store'
 import { stageRef } from '../stageRef'
@@ -24,7 +25,7 @@ function AnnotationItem({
   const setSelectedId = useAppStore((s) => s.setSelectedId)
   const updateAnnotation = useAppStore((s) => s.updateAnnotation)
   const removeAnnotation = useAppStore((s) => s.removeAnnotation)
-  const commentInputRef = useRef<HTMLTextAreaElement>(null)
+  const commentInputRef = useAutoResizeTextarea(annotation.comment)
 
   useEffect(() => {
     if (selected && annotation.comment === '') {
@@ -86,7 +87,7 @@ function AnnotationItem({
             ref={commentInputRef}
             className="annotation-comment-input"
             placeholder="Add a comment…"
-            rows={3}
+            rows={1}
             value={annotation.comment}
             onClick={(e) => e.stopPropagation()}
             onFocus={() => setSelectedId(annotation.id)}

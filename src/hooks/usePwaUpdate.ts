@@ -1,4 +1,5 @@
 import { useCallback, useSyncExternalStore } from 'react'
+import { AnalyticsEvents, trackEvent } from '../analytics'
 import {
   dismissPwaUpdate,
   getPwaUpdateAvailable,
@@ -14,6 +15,7 @@ export function usePwaUpdate() {
   )
 
   const applyUpdate = useCallback(() => {
+    trackEvent(AnalyticsEvents.APP_UPDATE)
     reloadToApplyUpdate()
   }, [])
 

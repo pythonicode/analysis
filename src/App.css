@@ -641,8 +641,9 @@
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 4px;
-  resize: vertical;
-  min-height: 52px;
+  resize: none;
+  overflow: hidden;
+  min-height: calc(1.4em + 8px);
 }
 
 .annotation-comment-input:focus {
