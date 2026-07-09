@@ -8,6 +8,7 @@ import type { LayoutMode } from '../hooks/useLayoutMode'
 import Tooltip from './Tooltip'
 import BottomSheet from './BottomSheet'
 import SlideDrawer from './SlideDrawer'
+import AnnotationAdvertisement from './AnnotationAdvertisement'
 
 function AnnotationItem({
   annotation,
@@ -54,8 +55,17 @@ function AnnotationItem({
         removeAnnotation(annotation.id)
       }}
     >
-      <Trash2 size={14} aria-hidden />
+      <Trash2 size={12} aria-hidden />
     </button>
+  )
+
+  const markerBadge = (
+    <span
+      className="annotation-marker"
+      style={{ background: annotation.color }}
+    >
+      {markerLabel(index)}
+    </span>
   )
 
   return (
@@ -63,19 +73,20 @@ function AnnotationItem({
       className={`annotation-item${selected ? ' selected' : ''}`}
       onClick={centerOnMarker}
     >
-      <span
-        className="annotation-marker"
-        style={{ background: annotation.color }}
-      >
-        {markerLabel(index)}
-      </span>
+      {layoutMode === 'touch' ? (
+        markerBadge
+      ) : (
+        <Tooltip content="Click to center on the map" side="left">
+          {markerBadge}
+        </Tooltip>
+      )}
       <div className="annotation-body">
         <div className="annotation-row">
           <textarea
             ref={commentInputRef}
             className="annotation-comment-input"
             placeholder="Add a comment…"
-            rows={2}
+            rows={3}
             value={annotation.comment}
             onClick={(e) => e.stopPropagation()}
             onFocus={() => setSelectedId(annotation.id)}
@@ -98,28 +109,43 @@ function MarkerDisplayToggle() {
   const markerDisplayMode = useAppStore((s) => s.markerDisplayMode)
   const setMarkerDisplayMode = useAppStore((s) => s.setMarkerDisplayMode)
 
+  const labelsButton = (
+    <button
+      type="button"
+      className={markerDisplayMode === 'labels' ? 'active' : ''}
+      aria-pressed={markerDisplayMode === 'labels'}
+      onClick={() => setMarkerDisplayMode('labels')}
+    >
+      Labels
+    </button>
+  )
+
+  const commentsButton = (
+    <button
+      type="button"
+      className={markerDisplayMode === 'comments' ? 'active' : ''}
+      aria-pressed={markerDisplayMode === 'comments'}
+      onClick={() => setMarkerDisplayMode('comments')}
+    >
+      Comments
+    </button>
+  )
+
   return (
     <div
       className="marker-display-toggle"
       role="group"
       aria-label="Map marker display"
     >
-      <button
-        type="button"
-        className={markerDisplayMode === 'labels' ? 'active' : ''}
-        aria-pressed={markerDisplayMode === 'labels'}
-        onClick={() => setMarkerDisplayMode('labels')}
+      <Tooltip content="Show letter labels on map markers" side="bottom">
+        {labelsButton}
+      </Tooltip>
+      <Tooltip
+        content="Show inline comments on the map. Drag the right edge of a selected comment to change its width."
+        side="bottom"
       >
-        Labels
-      </button>
-      <button
-        type="button"
-        className={markerDisplayMode === 'comments' ? 'active' : ''}
-        aria-pressed={markerDisplayMode === 'comments'}
-        onClick={() => setMarkerDisplayMode('comments')}
-      >
-        Comments
-      </button>
+        {commentsButton}
+      </Tooltip>
     </div>
   )
 }
@@ -159,12 +185,6 @@ function AnnotationsContent({
           ))}
         </ul>
       )}
-
-      <p className="panel-hint">
-        {layoutMode === 'touch'
-          ? 'Switch between letter labels and inline comments on the map. Drag the right edge of a selected comment to change its width.'
-          : 'Switch between letter labels and inline comments on the map. Drag the right edge of a selected comment to change its width.'}
-      </p>
     </>
   )
 }
@@ -184,7 +204,10 @@ export default function AnnotationsPanel({
   if (variant === 'sidebar') {
     return (
       <aside className="annotations-panel">
-        <AnnotationsContent layoutMode={layoutMode} />
+        <div className="annotations-panel-scroll">
+          <AnnotationsContent layoutMode={layoutMode} />
+        </div>
+        <AnnotationAdvertisement />
       </aside>
     )
   }
@@ -211,7 +234,10 @@ export default function AnnotationsPanel({
           onClose={closeAnnotations}
         >
           <div className="annotations-panel annotations-panel-drawer">
-            <AnnotationsContent layoutMode={layoutMode} />
+            <div className="annotations-panel-scroll">
+              <AnnotationsContent layoutMode={layoutMode} />
+            </div>
+            <AnnotationAdvertisement />
           </div>
         </SlideDrawer>
       </>
@@ -221,9 +247,16 @@ export default function AnnotationsPanel({
   if (!annotationsOpen) return null
 
   return (
-    <BottomSheet title="Annotations" onClose={closeAnnotations}>
+    <BottomSheet
+      title="Annotations"
+      onClose={closeAnnotations}
+      className="bottom-sheet-full"
+    >
       <div className="annotations-panel annotations-panel-sheet">
-        <AnnotationsContent layoutMode={layoutMode} />
+        <div className="annotations-panel-scroll">
+          <AnnotationsContent layoutMode={layoutMode} />
+        </div>
+        <AnnotationAdvertisement />
       </div>
     </BottomSheet>
   )
