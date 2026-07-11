@@ -1,7 +1,9 @@
 import { stageRef } from '../stageRef'
+import { contentGroupRef } from '../contentGroupRef'
 import { useAppStore } from '../store'
 import { AnalyticsEvents, trackEvent } from '../analytics'
 import { markerLabel } from './labels'
+import { rotatedBounds } from './viewport'
 import type { Annotation } from '../types'
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -190,29 +192,53 @@ function waitForPaint(): Promise<void> {
 function captureMapAtNativeResolution(
   stage: NonNullable<typeof stageRef.current>,
   mapImage: { width: number; height: number },
+  rotation: number,
 ): string {
   const prevWidth = stage.width()
   const prevHeight = stage.height()
   const prevScale = stage.scaleX()
   const prevX = stage.x()
   const prevY = stage.y()
+  const bounds = rotatedBounds(mapImage.width, mapImage.height, rotation)
+  const centerX = mapImage.width / 2
+  const centerY = mapImage.height / 2
+  const group = contentGroupRef.current
+  const prevGroupRotation = group?.rotation() ?? 0
+  const prevGroupX = group?.x() ?? centerX
+  const prevGroupY = group?.y() ?? centerY
+  const prevGroupOffsetX = group?.offsetX() ?? centerX
+  const prevGroupOffsetY = group?.offsetY() ?? centerY
 
   try {
-    stage.width(mapImage.width)
-    stage.height(mapImage.height)
+    if (group) {
+      group.rotation(rotation)
+      group.offset({ x: centerX, y: centerY })
+      group.position({ x: centerX, y: centerY })
+    }
+
+    stage.width(bounds.width)
+    stage.height(bounds.height)
     stage.scale({ x: 1, y: 1 })
-    stage.position({ x: 0, y: 0 })
+    stage.position({
+      x: -centerX + bounds.width / 2,
+      y: -centerY + bounds.height / 2,
+    })
     stage.draw()
 
     return stage.toDataURL({
       x: 0,
       y: 0,
-      width: mapImage.width,
-      height: mapImage.height,
+      width: bounds.width,
+      height: bounds.height,
       pixelRatio: 1,
       mimeType: 'image/png',
     })
   } finally {
+    if (group) {
+      group.rotation(prevGroupRotation)
+      group.offset({ x: prevGroupOffsetX, y: prevGroupOffsetY })
+      group.position({ x: prevGroupX, y: prevGroupY })
+    }
     stage.width(prevWidth)
     stage.height(prevHeight)
     stage.scale({ x: prevScale, y: prevScale })
@@ -228,7 +254,7 @@ function captureMapAtNativeResolution(
  */
 export function exportPng(): void {
   const stage = stageRef.current
-  const { mapImage, annotations, setSelectedId, activeTool, setActiveTool } =
+  const { mapImage, annotations, setSelectedId, activeTool, setActiveTool, viewport } =
     useAppStore.getState()
   if (!stage || !mapImage) return
 
@@ -239,10 +265,20 @@ export function exportPng(): void {
   void (async () => {
     await waitForPaint()
 
-    const mapDataUrl = captureMapAtNativeResolution(stage, mapImage)
+    const mapDataUrl = captureMapAtNativeResolution(
+      stage,
+      mapImage,
+      viewport.rotation,
+    )
+
+    const exportBounds = rotatedBounds(
+      mapImage.width,
+      mapImage.height,
+      viewport.rotation,
+    )
 
     const columnWidth =
-      annotations.length > 0 ? columnWidthForMap(mapImage.width) : 0
+      annotations.length > 0 ? columnWidthForMap(exportBounds.width) : 0
 
     const baseName = mapImage.name.replace(/\.[^.]+$/, '') || 'map'
     const anchor = document.createElement('a')
@@ -266,13 +302,13 @@ export function exportPng(): void {
       measureCtx,
       annotations,
       columnWidth,
-      mapImage.height,
+      exportBounds.height,
     )
     const sidebarWidth = columnWidth * layout.columns.length
 
     const canvas = document.createElement('canvas')
-    canvas.width = mapImage.width + sidebarWidth
-    canvas.height = mapImage.height
+    canvas.width = exportBounds.width + sidebarWidth
+    canvas.height = exportBounds.height
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
@@ -280,7 +316,7 @@ export function exportPng(): void {
     ctx.imageSmoothingEnabled = false
     ctx.drawImage(mapRender, 0, 0)
 
-    drawSidebar(ctx, layout, mapImage.width, mapImage.height)
+    drawSidebar(ctx, layout, exportBounds.width, exportBounds.height)
 
     anchor.href = canvas.toDataURL('image/png')
     anchor.download = `${baseName}-analysis.png`

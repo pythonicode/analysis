@@ -2,6 +2,7 @@ import { Minus, Plus } from 'lucide-react'
 import { getToolLabel } from '../config/tools'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import { useAppStore } from '../store'
+import CanvasRotationControl from './CanvasRotationControl'
 
 const MIN_SCALE = 0.05
 const MAX_SCALE = 8
@@ -19,6 +20,7 @@ export default function StatusBar({
 
   const showCoords = layoutMode === 'desktop'
   const showZoomButtons = layoutMode === 'touch'
+  const showRotation = layoutMode !== 'touch'
 
   const zoomBy = (direction: 1 | -1) => {
     const oldScale = viewport.scale
@@ -37,6 +39,7 @@ export default function StatusBar({
       <span className="statusbar-zoom">
         Zoom: {Math.round(viewport.scale * 100)}%
       </span>
+      {showRotation && <CanvasRotationControl compact={layoutMode === 'compact'} />}
       {showZoomButtons && (
         <span className="statusbar-zoom-controls">
           <button

@@ -4,6 +4,7 @@ import { useAppStore } from '../../store'
 import type { DrawnPath } from '../../types'
 import type { LayoutMode } from '../../hooks/useLayoutMode'
 import { canUseShadow } from '../../utils/viewport'
+import MapRotationGroup from './MapRotationGroup'
 
 export interface DraftStroke {
   points: number[]
@@ -46,7 +47,8 @@ export default function DrawingLayer({
 
   return (
     <Layer>
-      {paths.map((path) => {
+      <MapRotationGroup>
+        {paths.map((path) => {
         const selectionShadow =
           selectedId === path.id &&
           canUseShadow(path.width * 2, viewportScale)
@@ -91,6 +93,7 @@ export default function DrawingLayer({
           opacity={draft.opacity * 0.8}
         />
       )}
+      </MapRotationGroup>
     </Layer>
   )
 }

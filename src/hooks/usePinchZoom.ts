@@ -1,4 +1,9 @@
 import { useEffect, useRef, type RefObject } from 'react'
+import { contentGroupRef } from '../contentGroupRef'
+import { stageRef } from '../stageRef'
+import { useAppStore } from '../store'
+import { getMapPointer } from '../utils/mapPointer'
+import { mapToLayerLocal } from '../utils/viewport'
 import type { Viewport } from '../types'
 
 const MIN_DISTANCE = 10
@@ -46,6 +51,26 @@ export function usePinchZoom(
       return { x: clientX - rect.left, y: clientY - rect.top }
     }
 
+    const mapPointAtClient = (clientX: number, clientY: number) => {
+      const stage = stageRef.current
+      const vp = viewportRef.current
+      const stagePoint = getStagePoint(clientX, clientY)
+
+      if (stage && contentGroupRef.current) {
+        stage.setPointersPositions({ clientX, clientY })
+        const mapPoint = getMapPointer(stage)
+        if (mapPoint) return { mapPoint, stagePoint }
+      }
+
+      return {
+        mapPoint: {
+          x: (stagePoint.x - vp.x) / vp.scale,
+          y: (stagePoint.y - vp.y) / vp.scale,
+        },
+        stagePoint,
+      }
+    }
+
     const onPointerDown = (e: PointerEvent) => {
       if (e.pointerType !== 'touch') return
       pointersRef.current.set(e.pointerId, {
@@ -83,21 +108,27 @@ export function usePinchZoom(
           Math.max(minScale, oldScale * scaleFactor),
         )
 
-        const stagePoint = getStagePoint(center.x, center.y)
-        const mapPoint = {
-          x: (stagePoint.x - vp.x) / oldScale,
-          y: (stagePoint.y - vp.y) / oldScale,
-        }
+        const { mapPoint, stagePoint } = mapPointAtClient(center.x, center.y)
+        const mapImage = useAppStore.getState().mapImage
+        const mapCenter = mapImage
+          ? { x: mapImage.width / 2, y: mapImage.height / 2 }
+          : { x: 0, y: 0 }
+        const layerPoint = mapToLayerLocal(mapPoint, mapCenter, vp.rotation)
 
-        let nextX = stagePoint.x - mapPoint.x * newScale
-        let nextY = stagePoint.y - mapPoint.y * newScale
+        let nextX = stagePoint.x - layerPoint.x * newScale
+        let nextY = stagePoint.y - layerPoint.y * newScale
 
         if (lastPanCenterRef.current) {
           nextX += center.x - lastPanCenterRef.current.x
           nextY += center.y - lastPanCenterRef.current.y
         }
 
-        setViewport({ scale: newScale, x: nextX, y: nextY })
+        setViewport({
+          scale: newScale,
+          x: nextX,
+          y: nextY,
+          rotation: vp.rotation,
+        })
       }
 
       lastPinchDistRef.current = dist

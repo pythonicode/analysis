@@ -4,6 +4,7 @@ import { MessageSquareText, Trash2 } from 'lucide-react'
 import { useAppStore } from '../store'
 import { stageRef } from '../stageRef'
 import { markerLabel } from '../utils/labels'
+import { mapToLayerLocal } from '../utils/viewport'
 import type { Annotation } from '../types'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import Tooltip from './Tooltip'
@@ -38,11 +39,20 @@ function AnnotationItem({
     setSelectedId(annotation.id)
     const stage = stageRef.current
     if (!stage) return
-    const { viewport, setViewport } = useAppStore.getState()
+    const { viewport, setViewport, mapImage } = useAppStore.getState()
+    const center = mapImage
+      ? { x: mapImage.width / 2, y: mapImage.height / 2 }
+      : { x: 0, y: 0 }
+    const layerPoint = mapToLayerLocal(
+      annotation.position,
+      center,
+      viewport.rotation,
+    )
     setViewport({
       scale: viewport.scale,
-      x: stage.width() / 2 - annotation.position.x * viewport.scale,
-      y: stage.height() / 2 - annotation.position.y * viewport.scale,
+      rotation: viewport.rotation,
+      x: stage.width() / 2 - layerPoint.x * viewport.scale,
+      y: stage.height() / 2 - layerPoint.y * viewport.scale,
     })
   }
 

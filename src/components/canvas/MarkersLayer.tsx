@@ -16,6 +16,8 @@ import {
 import { canUseShadow } from '../../utils/viewport'
 import type { Annotation } from '../../types'
 import type { LayoutMode } from '../../hooks/useLayoutMode'
+import MapRotationGroup from './MapRotationGroup'
+import { getMapPointer } from '../../utils/mapPointer'
 
 const TOUCH_DRAG_THRESHOLD = 8
 
@@ -232,7 +234,7 @@ export default function MarkersLayer({
       const stage = stageRef.current
       if (!stage) return
       stage.setPointersPositions(e)
-      const pos = stage.getRelativePointerPosition()
+      const pos = getMapPointer(stage)
       if (!pos) return
 
       const localRightEdge = pos.x - annotation.position.x
@@ -275,7 +277,7 @@ export default function MarkersLayer({
     let startWidth = resolveTextWidth(annotation)
     if (stage) {
       stage.setPointersPositions(e.evt)
-      const pos = stage.getRelativePointerPosition()
+      const pos = getMapPointer(stage)
       if (pos) {
         startWidth = textWidthFromRightEdge(pos.x - annotation.position.x)
       }
@@ -297,7 +299,8 @@ export default function MarkersLayer({
 
   return (
     <Layer>
-      {annotations.map((annotation, index) => {
+      <MapRotationGroup>
+        {annotations.map((annotation, index) => {
         const selected = selectedId === annotation.id
         const radius = annotation.size
         const label = markerLabel(index)
@@ -361,6 +364,7 @@ export default function MarkersLayer({
           </Group>
         )
       })}
+      </MapRotationGroup>
     </Layer>
   )
 }

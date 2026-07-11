@@ -1427,6 +1427,69 @@
   background: var(--accent-bg);
 }
 
+.canvas-rotation-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.canvas-rotation-control-compact {
+  display: flex;
+  width: 100%;
+}
+
+.canvas-rotation-control-compact .canvas-rotation-label {
+  flex-shrink: 0;
+}
+
+.canvas-rotation-label {
+  flex-shrink: 0;
+  color: var(--text);
+}
+
+.canvas-rotation-slider {
+  flex: 1;
+  min-width: 80px;
+  max-width: 200px;
+  accent-color: var(--accent);
+}
+
+.canvas-rotation-control-compact .canvas-rotation-slider {
+  max-width: none;
+}
+
+.canvas-rotation-value {
+  flex-shrink: 0;
+  min-width: 40px;
+  font: 12px var(--mono);
+  color: var(--text-h);
+  text-align: right;
+}
+
+.canvas-rotation-reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: var(--text-h);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.canvas-rotation-reset:hover {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+
+.app-shell[data-layout='touch'] .canvas-rotation-control {
+  margin-bottom: 12px;
+}
+
 /* ---------- Tooltip ---------- */
 
 .tooltip-trigger-wrap {

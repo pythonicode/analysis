@@ -1,6 +1,7 @@
 import { Image as KonvaImage, Layer } from 'react-konva'
 import { useImage } from '../../hooks/useImage'
 import { useAppStore } from '../../store'
+import MapRotationGroup from './MapRotationGroup'
 
 export default function MapImageLayer() {
   const mapImage = useAppStore((s) => s.mapImage)
@@ -8,13 +9,15 @@ export default function MapImageLayer() {
 
   return (
     <Layer listening={false}>
-      {mapImage && image && (
-        <KonvaImage
-          image={image}
-          width={mapImage.width}
-          height={mapImage.height}
-        />
-      )}
+      <MapRotationGroup attachRef>
+        {mapImage && image && (
+          <KonvaImage
+            image={image}
+            width={mapImage.width}
+            height={mapImage.height}
+          />
+        )}
+      </MapRotationGroup>
     </Layer>
   )
 }

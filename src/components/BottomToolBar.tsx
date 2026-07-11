@@ -4,6 +4,7 @@ import { TOOLS, getToolTip } from '../config/tools'
 import { useAppStore } from '../store'
 import BottomSheet from './BottomSheet'
 import StrokeSettings from './StrokeSettings'
+import CanvasRotationControl from './CanvasRotationControl'
 
 export default function BottomToolBar() {
   const activeTool = useAppStore((s) => s.activeTool)
@@ -62,7 +63,8 @@ export default function BottomToolBar() {
       </nav>
 
       {settingsOpen && (
-        <BottomSheet title="Stroke settings" onClose={() => setSettingsOpen(false)}>
+        <BottomSheet title="View & stroke settings" onClose={() => setSettingsOpen(false)}>
+          <CanvasRotationControl compact />
           <StrokeSettings layoutMode="touch" />
         </BottomSheet>
       )}

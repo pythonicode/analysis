@@ -14,7 +14,8 @@ import MapImageLayer from './canvas/MapImageLayer'
 import GpxLayer from './canvas/GpxLayer'
 import DrawingLayer, { type DraftStroke } from './canvas/DrawingLayer'
 import MarkersLayer from './canvas/MarkersLayer'
-import { MAX_SCALE, MIN_SCALE } from '../utils/viewport'
+import { MAX_SCALE, MIN_SCALE, mapToLayerLocal, rotatedBounds } from '../utils/viewport'
+import { getMapPointer } from '../utils/mapPointer'
 
 const ZOOM_FACTOR = 1.06
 
@@ -82,15 +83,21 @@ export default function CanvasArea({
     if (!mapImage || size.width === 0 || size.height === 0) return
     if (lastFittedSrc.current === mapImage.src) return
     lastFittedSrc.current = mapImage.src
+    const center = { x: mapImage.width / 2, y: mapImage.height / 2 }
+    const bounds = rotatedBounds(
+      mapImage.width,
+      mapImage.height,
+      viewport.rotation,
+    )
     const scale =
-      Math.min(size.width / mapImage.width, size.height / mapImage.height) *
-      0.95
+      Math.min(size.width / bounds.width, size.height / bounds.height) * 0.95
     setViewport({
       scale,
-      x: (size.width - mapImage.width * scale) / 2,
-      y: (size.height - mapImage.height * scale) / 2,
+      rotation: viewport.rotation,
+      x: size.width / 2 - center.x * scale,
+      y: size.height / 2 - center.y * scale,
     })
-  }, [mapImage, size, setViewport])
+  }, [mapImage, size, setViewport, viewport.rotation])
 
   useEffect(() => {
     const isEditableTarget = (e: KeyboardEvent) => {
@@ -183,14 +190,18 @@ export default function CanvasArea({
         direction > 0 ? oldScale * ZOOM_FACTOR : oldScale / ZOOM_FACTOR,
       ),
     )
-    const mapPoint = {
-      x: (pointer.x - viewport.x) / oldScale,
-      y: (pointer.y - viewport.y) / oldScale,
-    }
+    const mapPoint = getMapPointer(stage)
+    if (!mapPoint) return
+    const mapImage = useAppStore.getState().mapImage
+    const center = mapImage
+      ? { x: mapImage.width / 2, y: mapImage.height / 2 }
+      : { x: 0, y: 0 }
+    const layerPoint = mapToLayerLocal(mapPoint, center, viewport.rotation)
     setViewport({
       scale: newScale,
-      x: pointer.x - mapPoint.x * newScale,
-      y: pointer.y - mapPoint.y * newScale,
+      rotation: viewport.rotation,
+      x: pointer.x - layerPoint.x * newScale,
+      y: pointer.y - layerPoint.y * newScale,
     })
   }
 
@@ -253,7 +264,7 @@ export default function CanvasArea({
       return
     }
     if (e.evt.button !== undefined && e.evt.button !== 0) return
-    const pos = stage.getRelativePointerPosition()
+    const pos = getMapPointer(stage)
     if (!pos) return
 
     shouldCloseAnnotations()
@@ -292,13 +303,14 @@ export default function CanvasArea({
       const pan = middlePanRef.current
       setViewport({
         scale: viewport.scale,
+        rotation: viewport.rotation,
         x: pan.viewportX + (e.evt.clientX - pan.startX),
         y: pan.viewportY + (e.evt.clientY - pan.startY),
       })
       return
     }
 
-    const pos = stage.getRelativePointerPosition()
+    const pos = getMapPointer(stage)
     if (!pos) return
     setPointer({ x: pos.x, y: pos.y })
 
@@ -343,7 +355,12 @@ export default function CanvasArea({
   const syncViewportFromStage = (e: KonvaEventObject<DragEvent>) => {
     const stage = e.target.getStage()
     if (!stage || e.target !== stage) return
-    setViewport({ scale: stage.scaleX(), x: stage.x(), y: stage.y() })
+    setViewport({
+      scale: stage.scaleX(),
+      x: stage.x(),
+      y: stage.y(),
+      rotation: viewport.rotation,
+    })
   }
 
   const cursor = isPanning

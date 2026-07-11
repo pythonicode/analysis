@@ -24,6 +24,8 @@ interface Snapshot {
 /** Loadable project content: what Save/Open and persistence care about. */
 export interface ProjectData extends Snapshot {
   mapImage: MapImage | null
+  /** Clockwise canvas rotation in whole degrees; omitted in older projects */
+  rotation?: number
 }
 
 /** IndexedDB-backed storage; localStorage is too small for embedded map images. */
@@ -147,7 +149,7 @@ export const useAppStore = create<AppState>()(
   strokeWidth: 4,
   strokeColor: '#e11d48',
   strokeOpacity: 0.5,
-  viewport: { scale: 1, x: 0, y: 0 },
+  viewport: { scale: 1, x: 0, y: 0, rotation: 0 },
   pointer: null,
   selectedId: null,
   importError: null,
@@ -230,7 +232,12 @@ export const useAppStore = create<AppState>()(
       future: [],
       lastCoalesceKey: null,
       selectedId: null,
-      viewport: { scale: 1, x: 0, y: 0 },
+      viewport: {
+        scale: 1,
+        x: 0,
+        y: 0,
+        rotation: data.rotation ?? 0,
+      },
       importError: null,
     }),
 
@@ -242,7 +249,7 @@ export const useAppStore = create<AppState>()(
       tracks: [],
       paths: [],
       annotations: [],
-      viewport: { scale: 1, x: 0, y: 0 },
+      viewport: { scale: 1, x: 0, y: 0, rotation: 0 },
       pointer: null,
       selectedId: null,
       importError: null,
@@ -290,15 +297,20 @@ export const useAppStore = create<AppState>()(
         strokeColor: s.strokeColor,
         strokeOpacity: s.strokeOpacity,
         markerDisplayMode: s.markerDisplayMode,
+        rotation: s.viewport.rotation,
       }),
       merge: (persistedState, currentState) => {
-        const persisted = persistedState as Partial<AppState> | undefined
+        const persisted = persistedState as Partial<AppState> & {
+          rotation?: number
+        }
         if (!persisted) return currentState
         return {
           ...currentState,
           ...persisted,
-          // Refit on open; avoids rendering with a stale zoom from persistence.
-          viewport: DEFAULT_VIEWPORT,
+          viewport: {
+            ...DEFAULT_VIEWPORT,
+            rotation: persisted.rotation ?? 0,
+          },
         }
       },
     },

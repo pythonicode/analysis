@@ -6,6 +6,8 @@ import { nearestVertex, warpPoints } from '../../utils/warp'
 import { resolveGpxStrokeWidth } from '../../utils/gpx'
 import type { GpxTrack } from '../../types'
 import type { LayoutMode } from '../../hooks/useLayoutMode'
+import MapRotationGroup from './MapRotationGroup'
+import { getMapPointer } from '../../utils/mapPointer'
 
 const LONG_PRESS_MS = 500
 
@@ -48,7 +50,7 @@ function Track({
     if (!adjustMode) return
     if ('button' in e.evt && e.evt.button !== 0) return
     const stage = e.target.getStage()
-    const pos = stage?.getRelativePointerPosition()
+    const pos = stage ? getMapPointer(stage) : null
     if (!pos) return
     const vertex = nearestVertex(warped, pos)
     const source = {
@@ -180,16 +182,18 @@ export default function GpxLayer({
 
   return (
     <Layer>
-      {tracks.map((track) => (
-        <Track
-          key={track.id}
-          track={track}
-          adjustMode={adjustMode}
-          strokeWidth={resolveGpxStrokeWidth(track, mapImage)}
-          pinRadius={pinRadius}
-          isTouch={isTouch}
-        />
-      ))}
+      <MapRotationGroup>
+        {tracks.map((track) => (
+          <Track
+            key={track.id}
+            track={track}
+            adjustMode={adjustMode}
+            strokeWidth={resolveGpxStrokeWidth(track, mapImage)}
+            pinRadius={pinRadius}
+            isTouch={isTouch}
+          />
+        ))}
+      </MapRotationGroup>
     </Layer>
   )
 }

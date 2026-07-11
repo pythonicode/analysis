@@ -57,7 +57,13 @@ export function saveProjectFile(): void {
   const { mapImage, tracks, paths, annotations, setImportError } =
     useAppStore.getState()
 
-  const project: ProjectData = { mapImage, tracks, paths, annotations }
+  const project: ProjectData = {
+    mapImage,
+    tracks,
+    paths,
+    annotations,
+    rotation: useAppStore.getState().viewport.rotation,
+  }
   if (!hasProjectContent(project)) {
     setImportError('Nothing to save — import a map or add content first')
     return
@@ -96,6 +102,7 @@ function loadProjectFromText(text: string): void {
     tracks: parsed.tracks,
     paths: parsed.paths,
     annotations: parsed.annotations,
+    rotation: parsed.rotation,
   })
 }
 

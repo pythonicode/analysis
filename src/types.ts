@@ -11,6 +11,8 @@ export interface Viewport {
   scale: number
   x: number
   y: number
+  /** Clockwise rotation in whole degrees around the map center */
+  rotation: number
 }
 
 export interface DrawnPath {
