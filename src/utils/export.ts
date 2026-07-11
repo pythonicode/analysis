@@ -3,7 +3,6 @@ import { contentGroupRef } from '../contentGroupRef'
 import { useAppStore } from '../store'
 import { AnalyticsEvents, trackEvent } from '../analytics'
 import { markerLabel } from './labels'
-import { rotatedBounds } from './viewport'
 import type { Annotation } from '../types'
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -187,19 +186,18 @@ function waitForPaint(): Promise<void> {
 
 /**
  * Renders the stage at 1:1 map coordinates so the base image is not
- * downscaled through the on-screen viewport transform.
+ * downscaled through the on-screen viewport transform. View rotation is
+ * ignored, matching how zoom/pan are editing-only controls.
  */
 function captureMapAtNativeResolution(
   stage: NonNullable<typeof stageRef.current>,
   mapImage: { width: number; height: number },
-  rotation: number,
 ): string {
   const prevWidth = stage.width()
   const prevHeight = stage.height()
   const prevScale = stage.scaleX()
   const prevX = stage.x()
   const prevY = stage.y()
-  const bounds = rotatedBounds(mapImage.width, mapImage.height, rotation)
   const centerX = mapImage.width / 2
   const centerY = mapImage.height / 2
   const group = contentGroupRef.current
@@ -211,25 +209,22 @@ function captureMapAtNativeResolution(
 
   try {
     if (group) {
-      group.rotation(rotation)
+      group.rotation(0)
       group.offset({ x: centerX, y: centerY })
       group.position({ x: centerX, y: centerY })
     }
 
-    stage.width(bounds.width)
-    stage.height(bounds.height)
+    stage.width(mapImage.width)
+    stage.height(mapImage.height)
     stage.scale({ x: 1, y: 1 })
-    stage.position({
-      x: -centerX + bounds.width / 2,
-      y: -centerY + bounds.height / 2,
-    })
+    stage.position({ x: 0, y: 0 })
     stage.draw()
 
     return stage.toDataURL({
       x: 0,
       y: 0,
-      width: bounds.width,
-      height: bounds.height,
+      width: mapImage.width,
+      height: mapImage.height,
       pixelRatio: 1,
       mimeType: 'image/png',
     })
@@ -254,7 +249,7 @@ function captureMapAtNativeResolution(
  */
 export function exportPng(): void {
   const stage = stageRef.current
-  const { mapImage, annotations, setSelectedId, activeTool, setActiveTool, viewport } =
+  const { mapImage, annotations, setSelectedId, activeTool, setActiveTool } =
     useAppStore.getState()
   if (!stage || !mapImage) return
 
@@ -265,20 +260,10 @@ export function exportPng(): void {
   void (async () => {
     await waitForPaint()
 
-    const mapDataUrl = captureMapAtNativeResolution(
-      stage,
-      mapImage,
-      viewport.rotation,
-    )
-
-    const exportBounds = rotatedBounds(
-      mapImage.width,
-      mapImage.height,
-      viewport.rotation,
-    )
+    const mapDataUrl = captureMapAtNativeResolution(stage, mapImage)
 
     const columnWidth =
-      annotations.length > 0 ? columnWidthForMap(exportBounds.width) : 0
+      annotations.length > 0 ? columnWidthForMap(mapImage.width) : 0
 
     const baseName = mapImage.name.replace(/\.[^.]+$/, '') || 'map'
     const anchor = document.createElement('a')
@@ -302,13 +287,13 @@ export function exportPng(): void {
       measureCtx,
       annotations,
       columnWidth,
-      exportBounds.height,
+      mapImage.height,
     )
     const sidebarWidth = columnWidth * layout.columns.length
 
     const canvas = document.createElement('canvas')
-    canvas.width = exportBounds.width + sidebarWidth
-    canvas.height = exportBounds.height
+    canvas.width = mapImage.width + sidebarWidth
+    canvas.height = mapImage.height
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
@@ -316,7 +301,7 @@ export function exportPng(): void {
     ctx.imageSmoothingEnabled = false
     ctx.drawImage(mapRender, 0, 0)
 
-    drawSidebar(ctx, layout, exportBounds.width, exportBounds.height)
+    drawSidebar(ctx, layout, mapImage.width, mapImage.height)
 
     anchor.href = canvas.toDataURL('image/png')
     anchor.download = `${baseName}-analysis.png`
