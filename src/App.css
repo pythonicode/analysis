@@ -1208,6 +1208,162 @@
   color: var(--text);
 }
 
+.modal-gpx.modal-gpx-crop-open {
+  width: 480px;
+}
+
+.modal-gpx .button.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.gpx-crop-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--text) 3%, var(--bg));
+}
+
+.gpx-crop-panel-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.gpx-crop-panel-note {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text);
+}
+
+.gpx-pace-chart {
+  position: relative;
+  width: 100%;
+}
+
+.gpx-pace-chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: none;
+  user-select: none;
+}
+
+.gpx-pace-chart-plot {
+  fill: color-mix(in srgb, var(--text) 4%, transparent);
+  stroke: none;
+}
+
+.gpx-pace-chart-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.gpx-pace-chart-axis-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  fill: var(--text);
+}
+
+.gpx-pace-chart-baseline {
+  stroke: var(--border);
+  stroke-width: 2;
+}
+
+.gpx-pace-chart-line {
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.gpx-pace-chart-crosshair {
+  stroke: var(--text);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.gpx-crop-dim {
+  fill: color-mix(in srgb, var(--bg) 55%, transparent);
+  pointer-events: none;
+}
+
+.gpx-crop-selection {
+  fill: color-mix(in srgb, var(--accent) 12%, transparent);
+  pointer-events: none;
+}
+
+.gpx-crop-handle-line {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.gpx-crop-handle-hit {
+  fill: transparent;
+  cursor: ew-resize;
+}
+
+.gpx-crop-handle {
+  fill: var(--accent);
+  pointer-events: none;
+}
+
+.gpx-pace-chart-tooltip {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 2px 6px;
+  font: 10px var(--mono);
+  color: var(--text-h);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+.gpx-crop-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px;
+  font: 11px var(--mono);
+  color: var(--text);
+}
+
+.gpx-crop-stats-kept {
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+.gpx-crop-error {
+  margin: 0;
+  font-size: 11px;
+  color: #e11d48;
+}
+
+.gpx-crop-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.app-shell[data-layout='touch'] .gpx-crop-handle-hit {
+  /* Wider touch target */
+  transform: scaleX(1.8);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
 .modal-header {
   display: flex;
   flex-shrink: 0;
@@ -1351,6 +1507,198 @@
   padding: 16px;
   font-size: 14px;
   line-height: 1.5;
+}
+
+.modal-export {
+  width: 560px;
+  max-width: calc(100vw - 32px);
+}
+
+.export-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+}
+
+.export-preview-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  max-height: min(50vh, 420px);
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--text) 4%, var(--bg));
+  overflow: hidden;
+  touch-action: none;
+}
+
+.export-preview-stage {
+  position: relative;
+  flex-shrink: 0;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+.export-preview-wrap.is-zoomed .export-preview-stage {
+  cursor: grab;
+}
+
+.export-preview-wrap.is-panning .export-preview-stage {
+  cursor: grabbing;
+}
+
+.export-preview-placeholder {
+  margin: 0;
+  font: 12px var(--mono);
+  color: var(--text);
+}
+
+.export-preview-image {
+  display: block;
+  max-width: none;
+  max-height: none;
+  border-radius: 4px;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.export-preview-image-hidden {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.export-preview-image-loading {
+  opacity: 0.55;
+}
+
+.export-preview-zoom-bar {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.export-preview-zoom-label {
+  min-width: 40px;
+  padding: 0 4px;
+  font: 11px var(--mono);
+  color: var(--text-h);
+  text-align: center;
+}
+
+.export-preview-zoom-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  line-height: 1;
+}
+
+.export-preview-zoom-btn svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+.export-preview-hint {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 2px 8px;
+  font: 10px var(--mono);
+  color: var(--text);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  border-radius: 4px;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.export-preview-wrap.is-panning .export-preview-hint,
+.export-preview-wrap.is-zoomed .export-preview-hint {
+  opacity: 0;
+}
+
+.export-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.export-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.export-toggle input {
+  accent-color: var(--accent);
+}
+
+.export-control-hint {
+  margin: -4px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.export-slider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.export-slider-label {
+  flex-shrink: 0;
+  width: 72px;
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+.export-slider input[type='range'] {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+}
+
+.export-slider-value {
+  flex-shrink: 0;
+  width: 40px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-h);
+  text-align: right;
+}
+
+.app-shell[data-layout='touch'] .modal-export {
+  width: 100%;
+}
+
+.app-shell[data-layout='touch'] .export-modal-body .modal-actions-touch {
+  flex-direction: column;
 }
 
 .app-shell[data-layout='touch'] .modal .modal-body {

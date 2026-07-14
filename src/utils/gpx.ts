@@ -1,4 +1,5 @@
 import type { GpxTrack } from '../types'
+import { cumulativeDistancesFromLatLon } from './gpxMetrics'
 
 interface ParsedGpx {
   name: string
@@ -7,6 +8,10 @@ interface ParsedGpx {
   /** Bounding box size of the local points */
   width: number
   height: number
+  /** Epoch ms per vertex when GPX includes timestamps */
+  vertexTimes?: number[]
+  /** Cumulative geodesic distance in meters per vertex */
+  vertexDistances: number[]
 }
 
 /** Web Mercator projection; y is flipped so north is up in canvas coordinates. */
@@ -15,6 +20,13 @@ function project(lat: number, lon: number): { x: number; y: number } {
   const latRad = (lat * Math.PI) / 180
   const y = -Math.log(Math.tan(Math.PI / 4 + latRad / 2))
   return { x, y }
+}
+
+function parseTimeMs(node: Element): number | undefined {
+  const text = node.querySelector(':scope > time')?.textContent?.trim()
+  if (!text) return undefined
+  const ms = Date.parse(text)
+  return Number.isFinite(ms) ? ms : undefined
 }
 
 /**
@@ -31,11 +43,16 @@ export function parseGpx(xml: string, fileName: string): ParsedGpx {
   if (pointNodes.length === 0) pointNodes = Array.from(doc.querySelectorAll('rtept'))
   if (pointNodes.length === 0) pointNodes = Array.from(doc.querySelectorAll('wpt'))
 
+  const coords: { lat: number; lon: number }[] = []
+  const times: (number | undefined)[] = []
   const projected: { x: number; y: number }[] = []
+
   for (const node of pointNodes) {
     const lat = Number(node.getAttribute('lat'))
     const lon = Number(node.getAttribute('lon'))
     if (Number.isFinite(lat) && Number.isFinite(lon)) {
+      coords.push({ lat, lon })
+      times.push(parseTimeMs(node))
       projected.push(project(lat, lon))
     }
   }
@@ -68,7 +85,13 @@ export function parseGpx(xml: string, fileName: string): ParsedGpx {
     points.push(p.x - minX, p.y - minY)
   }
 
-  return { name, points, width, height }
+  const vertexDistances = cumulativeDistancesFromLatLon(coords)
+  const hasAnyTime = times.some((t) => t != null)
+  const vertexTimes = hasAnyTime
+    ? times.map((t, i) => t ?? times[i - 1] ?? times[i + 1] ?? 0)
+    : undefined
+
+  return { name, points, width, height, vertexTimes, vertexDistances }
 }
 
 export const TRACK_COLORS = [
@@ -123,5 +146,7 @@ export function buildTrack(
     color: TRACK_COLORS[index % TRACK_COLORS.length],
     opacity: 0.85,
     width: defaultGpxStrokeWidth(target),
+    vertexTimes: parsed.vertexTimes,
+    vertexDistances: parsed.vertexDistances,
   }
 }

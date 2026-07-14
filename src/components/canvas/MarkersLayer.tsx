@@ -2,6 +2,7 @@ import { Circle, Group, Layer, Rect, Text } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from '../../store'
+import { areExportMarkersSuppressed } from '../../utils/export'
 import { stageRef } from '../../stageRef'
 import { markerLabel } from '../../utils/labels'
 import {
@@ -295,6 +296,10 @@ export default function MarkersLayer({
     updateAnnotation(id, {
       position: { x: e.target.x(), y: e.target.y() },
     })
+  }
+
+  if (areExportMarkersSuppressed()) {
+    return <Layer />
   }
 
   return (

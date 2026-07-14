@@ -171,7 +171,7 @@ export function buildOverflowActions(opts: {
     },
     {
       id: 'export',
-      label: 'Export PNG',
+      label: 'Export',
       icon: <Download size={16} aria-hidden />,
       onClick: opts.onExport,
       disabled: !opts.mapImage,

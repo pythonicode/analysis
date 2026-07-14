@@ -15,12 +15,12 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '../store'
 import { importGpxFile, importImageFile } from '../utils/files'
-import { exportPng } from '../utils/export'
 import { openProjectFile, saveProjectFile, PROJECT_FILE_EXTENSION } from '../utils/project'
 import { usePwaInstall } from '../hooks/usePwaInstall'
 import { usePwaUpdate } from '../hooks/usePwaUpdate'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import EditGpxModal from './EditGpxModal'
+import ExportModal from './ExportModal'
 import NewProjectModal from './NewProjectModal'
 import Tooltip from './Tooltip'
 import TopBarMenu, { buildOverflowActions } from './TopBarMenu'
@@ -48,6 +48,7 @@ export default function TopBar({
   const gpxInputRef = useRef<HTMLInputElement>(null)
   const projectInputRef = useRef<HTMLInputElement>(null)
   const [gpxModalOpen, setGpxModalOpen] = useState(false)
+  const [exportModalOpen, setExportModalOpen] = useState(false)
   const [newProjectModalOpen, setNewProjectModalOpen] = useState(false)
   const { canInstall, install } = usePwaInstall()
   const { updateAvailable, applyUpdate } = usePwaUpdate()
@@ -76,7 +77,7 @@ export default function TopBar({
     onNew: handleNewProject,
     onOpen: () => projectInputRef.current?.click(),
     onSave: saveProjectFile,
-    onExport: exportPng,
+    onExport: () => setExportModalOpen(true),
     onInstall: () => void install(),
     onUpdate: applyUpdate,
   })
@@ -251,7 +252,7 @@ export default function TopBar({
             <Tooltip
               content={
                 mapImage
-                  ? 'Download the map with all drawings and annotations'
+                  ? 'Preview and download the map with drawings and annotations'
                   : 'Import a map image before exporting'
               }
             >
@@ -259,10 +260,10 @@ export default function TopBar({
                 type="button"
                 className="button button-primary"
                 disabled={!mapImage}
-                onClick={exportPng}
+                onClick={() => setExportModalOpen(true)}
               >
                 <Download size={16} aria-hidden />
-                <span className="button-label">Export PNG</span>
+                <span className="button-label">Export</span>
               </button>
             </Tooltip>
             {updateAvailable && (
@@ -305,6 +306,13 @@ export default function TopBar({
         />
       )}
 
+      {exportModalOpen && (
+        <ExportModal
+          layoutMode={layoutMode}
+          onClose={() => setExportModalOpen(false)}
+        />
+      )}
+
       {newProjectModalOpen && (
         <NewProjectModal
           layoutMode={layoutMode}
@@ -312,6 +320,10 @@ export default function TopBar({
           canExport={mapImage !== null}
           onConfirm={newProject}
           onClose={() => setNewProjectModalOpen(false)}
+          onExport={() => {
+            setNewProjectModalOpen(false)
+            setExportModalOpen(true)
+          }}
         />
       )}
     </header>

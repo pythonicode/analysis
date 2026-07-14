@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
-import { Download, Save, X } from 'lucide-react'
-import { exportPng } from '../utils/export'
+import { Save, X } from 'lucide-react'
 import { saveProjectFile, PROJECT_FILE_EXTENSION } from '../utils/project'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import Tooltip from './Tooltip'
@@ -11,12 +10,14 @@ export default function NewProjectModal({
   canExport,
   onConfirm,
   onClose,
+  onExport,
 }: {
   layoutMode: LayoutMode
   canSave: boolean
   canExport: boolean
   onConfirm: () => void
   onClose: () => void
+  onExport: () => void
 }) {
   const isTouch = layoutMode === 'touch'
 
@@ -50,10 +51,9 @@ export default function NewProjectModal({
       type="button"
       className="button"
       disabled={!canExport}
-      onClick={exportPng}
+      onClick={onExport}
     >
-      <Download size={14} aria-hidden />
-      Export PNG
+      Export
     </button>
   )
 

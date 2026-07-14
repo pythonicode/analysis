@@ -43,6 +43,10 @@ export interface GpxTrack {
   opacity: number
   /** Stroke width in map units; omitted in older saved projects */
   width?: number
+  /** Epoch ms from GPX `<time>` per vertex; length = points.length / 2 */
+  vertexTimes?: number[]
+  /** Cumulative geodesic distance in meters per vertex; length = points.length / 2 */
+  vertexDistances?: number[]
 }
 
 export interface Annotation {

@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { Anchor, Trash2, Upload, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Anchor, Scissors, Trash2, Upload, X } from 'lucide-react'
 import { useAppStore } from '../store'
 import {
   defaultGpxStrokeWidth,
@@ -8,6 +8,7 @@ import {
 } from '../utils/gpx'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import Tooltip from './Tooltip'
+import GpxCropPanel from './GpxCropPanel'
 
 export default function EditGpxModal({
   layoutMode,
@@ -26,15 +27,19 @@ export default function EditGpxModal({
   const setToastMessage = useAppStore((s) => s.setToastMessage)
   const activeTool = useAppStore((s) => s.activeTool)
 
+  const [cropTrackId, setCropTrackId] = useState<string | null>(null)
   const isTouch = layoutMode === 'touch'
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        if (cropTrackId) setCropTrackId(null)
+        else onClose()
+      }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+  }, [cropTrackId, onClose])
 
   const adjustTrack = () => {
     setActiveTool('gpx')
@@ -45,10 +50,15 @@ export default function EditGpxModal({
   }
 
   const handleRemove = (id: string) => {
+    if (cropTrackId === id) setCropTrackId(null)
     removeTrack(id)
     if (tracks.length === 1 && activeTool === 'gpx') {
       setActiveTool('select')
     }
+  }
+
+  const toggleCrop = (id: string) => {
+    setCropTrackId((current) => (current === id ? null : id))
   }
 
   const strokeTarget = mapImage ?? { width: 1000, height: 1000 }
@@ -59,7 +69,7 @@ export default function EditGpxModal({
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
-        className="modal modal-gpx"
+        className={`modal modal-gpx${cropTrackId ? ' modal-gpx-crop-open' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="gpx-modal-title"
@@ -81,6 +91,7 @@ export default function EditGpxModal({
           {tracks.map((track) => {
             const width = Math.round(resolveGpxStrokeWidth(track, mapImage))
             const opacity = Math.round(track.opacity * 100)
+            const isCropping = cropTrackId === track.id
 
             return (
               <li key={track.id} className="modal-track">
@@ -102,6 +113,14 @@ export default function EditGpxModal({
                       <>
                         <button
                           type="button"
+                          className={`button button-small${isCropping ? ' active' : ''}`}
+                          onClick={() => toggleCrop(track.id)}
+                        >
+                          <Scissors size={14} aria-hidden />
+                          Crop
+                        </button>
+                        <button
+                          type="button"
                           className="button button-small"
                           onClick={adjustTrack}
                         >
@@ -119,6 +138,17 @@ export default function EditGpxModal({
                       </>
                     ) : (
                       <>
+                        <Tooltip content="Crop start and end of track">
+                          <button
+                            type="button"
+                            className={`button button-icon-only${isCropping ? ' active' : ''}`}
+                            aria-label="Crop track"
+                            aria-pressed={isCropping}
+                            onClick={() => toggleCrop(track.id)}
+                          >
+                            <Scissors size={14} aria-hidden />
+                          </button>
+                        </Tooltip>
                         <Tooltip content="Switch to map and drag anchor pins">
                           <button
                             type="button"
@@ -144,56 +174,69 @@ export default function EditGpxModal({
                   </div>
                 </div>
 
-                <div className="modal-track-controls">
-                  <div className="modal-track-colors">
-                    {TRACK_COLORS.map((color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        className={`swatch${track.color === color ? ' active' : ''}`}
-                        style={{ background: color }}
-                        aria-label={`Track colour ${color}`}
-                        onClick={() => updateTrack(track.id, { color })}
+                {!isCropping && (
+                  <div className="modal-track-controls">
+                    <div className="modal-track-colors">
+                      {TRACK_COLORS.map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          className={`swatch${track.color === color ? ' active' : ''}`}
+                          style={{ background: color }}
+                          aria-label={`Track colour ${color}`}
+                          onClick={() => updateTrack(track.id, { color })}
+                        />
+                      ))}
+                    </div>
+                    <label className="modal-track-slider">
+                      <span className="modal-track-slider-label">Width</span>
+                      <input
+                        type="range"
+                        min={minWidth}
+                        max={maxWidth}
+                        value={width}
+                        aria-label="Stroke width"
+                        onChange={(e) =>
+                          updateTrack(
+                            track.id,
+                            { width: Number(e.target.value) },
+                            `track:${track.id}:width`,
+                          )
+                        }
                       />
-                    ))}
+                      <span>{width}</span>
+                    </label>
+                    <label className="modal-track-slider">
+                      <span className="modal-track-slider-label">Opac</span>
+                      <input
+                        type="range"
+                        min={10}
+                        max={100}
+                        value={opacity}
+                        aria-label="Opacity"
+                        onChange={(e) =>
+                          updateTrack(
+                            track.id,
+                            { opacity: Number(e.target.value) / 100 },
+                            `track:${track.id}:opacity`,
+                          )
+                        }
+                      />
+                      <span>{opacity}%</span>
+                    </label>
                   </div>
-                  <label className="modal-track-slider">
-                    <span className="modal-track-slider-label">Width</span>
-                    <input
-                      type="range"
-                      min={minWidth}
-                      max={maxWidth}
-                      value={width}
-                      aria-label="Stroke width"
-                      onChange={(e) =>
-                        updateTrack(
-                          track.id,
-                          { width: Number(e.target.value) },
-                          `track:${track.id}:width`,
-                        )
-                      }
-                    />
-                    <span>{width}</span>
-                  </label>
-                  <label className="modal-track-slider">
-                    <span className="modal-track-slider-label">Opac</span>
-                    <input
-                      type="range"
-                      min={10}
-                      max={100}
-                      value={opacity}
-                      aria-label="Opacity"
-                      onChange={(e) =>
-                        updateTrack(
-                          track.id,
-                          { opacity: Number(e.target.value) / 100 },
-                          `track:${track.id}:opacity`,
-                        )
-                      }
-                    />
-                    <span>{opacity}%</span>
-                  </label>
-                </div>
+                )}
+
+                {isCropping && (
+                  <GpxCropPanel
+                    track={track}
+                    onApply={(cropped) => {
+                      updateTrack(track.id, cropped, `track:${track.id}:crop`)
+                      setCropTrackId(null)
+                    }}
+                    onCancel={() => setCropTrackId(null)}
+                  />
+                )}
               </li>
             )
           })}
