@@ -1,6 +1,7 @@
 import { RotateCcw } from 'lucide-react'
 import { useAppStore } from '../store'
-import { clampRotation } from '../utils/viewport'
+import { stageRef } from '../stageRef'
+import { clampRotation, rotateViewportKeepingCenter } from '../utils/viewport'
 
 const MIN_ROTATION = -360
 const MAX_ROTATION = 360
@@ -17,7 +18,21 @@ export default function CanvasRotationControl({
   if (!mapImage) return null
 
   const applyRotation = (degrees: number) => {
-    setViewport({ ...viewport, rotation: clampRotation(degrees) })
+    const rotation = clampRotation(degrees)
+    const mapCenter = { x: mapImage.width / 2, y: mapImage.height / 2 }
+    const stage = stageRef.current
+    if (stage) {
+      setViewport(
+        rotateViewportKeepingCenter(
+          viewport,
+          rotation,
+          mapCenter,
+          { x: stage.width() / 2, y: stage.height() / 2 },
+        ),
+      )
+      return
+    }
+    setViewport({ ...viewport, rotation })
   }
 
   return (

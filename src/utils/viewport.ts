@@ -63,6 +63,50 @@ export function mapToLayerLocal(
   }
 }
 
+/** Layer-local point back to map-local coordinates (inverse of mapToLayerLocal). */
+export function layerToMapLocal(
+  point: Point,
+  center: Point,
+  rotationDeg: number,
+): Point {
+  const normalized = normalizeRotation(rotationDeg)
+  if (normalized === 0) return point
+
+  const rad = (normalized * Math.PI) / 180
+  const cos = Math.cos(rad)
+  const sin = Math.sin(rad)
+  const dx = point.x - center.x
+  const dy = point.y - center.y
+  return {
+    x: center.x + dx * cos + dy * sin,
+    y: center.y - dx * sin + dy * cos,
+  }
+}
+
+/**
+ * Applies a new rotation while keeping the map point at screenCenter fixed on screen.
+ * Same anchor pattern as zoom-to-cursor and center-on-annotation.
+ */
+export function rotateViewportKeepingCenter(
+  viewport: Viewport,
+  newRotation: number,
+  mapCenter: Point,
+  screenCenter: Point,
+): Viewport {
+  const layerPoint = {
+    x: (screenCenter.x - viewport.x) / viewport.scale,
+    y: (screenCenter.y - viewport.y) / viewport.scale,
+  }
+  const mapPoint = layerToMapLocal(layerPoint, mapCenter, viewport.rotation)
+  const newLayerPoint = mapToLayerLocal(mapPoint, mapCenter, newRotation)
+  return clampViewport({
+    scale: viewport.scale,
+    rotation: newRotation,
+    x: screenCenter.x - newLayerPoint.x * viewport.scale,
+    y: screenCenter.y - newLayerPoint.y * viewport.scale,
+  })
+}
+
 export function clampViewport(viewport: Viewport): Viewport {
   const scale = Number.isFinite(viewport.scale)
     ? Math.min(MAX_SCALE, Math.max(MIN_SCALE, viewport.scale))
