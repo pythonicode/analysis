@@ -6,9 +6,26 @@ import {
   resolveGpxStrokeWidth,
   TRACK_COLORS,
 } from '../utils/gpx'
+import {
+  defaultHrScale,
+  defaultPaceScale,
+  formatPace,
+  hasTrackHeartRate,
+  hasTrackTiming,
+} from '../utils/gpxMetrics'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import Tooltip from './Tooltip'
 import GpxCropPanel from './GpxCropPanel'
+import DualRangeSlider from './DualRangeSlider'
+
+const PACE_SLIDER_MIN = 2
+const PACE_SLIDER_MAX = 20
+const PACE_SLIDER_STEP = 0.1
+const HR_SLIDER_MIN = 60
+const HR_SLIDER_MAX = 220
+const HR_SLIDER_STEP = 1
+const HR_LOW_COLOR = '#2a0404'
+const HR_HIGH_COLOR = '#ff9a9a'
 
 export default function EditGpxModal({
   layoutMode,
@@ -92,13 +109,89 @@ export default function EditGpxModal({
             const width = Math.round(resolveGpxStrokeWidth(track, mapImage))
             const opacity = Math.round(track.opacity * 100)
             const isCropping = cropTrackId === track.id
+            const timing = hasTrackTiming(track)
+            const hasHr = hasTrackHeartRate(track)
+            const paceMode = timing && track.lineStyle === 'pace'
+            const hrMode = hasHr && track.lineStyle === 'hr'
+            const paceDefaults = timing ? defaultPaceScale(track) : null
+            const hrDefaults = hasHr ? defaultHrScale(track) : null
+            const paceScale =
+              paceMode && paceDefaults
+                ? {
+                    min: track.paceScaleMin ?? paceDefaults.min,
+                    max: track.paceScaleMax ?? paceDefaults.max,
+                  }
+                : null
+            const hrScale =
+              hrMode && hrDefaults
+                ? {
+                    min: track.hrScaleMin ?? hrDefaults.min,
+                    max: track.hrScaleMax ?? hrDefaults.max,
+                  }
+                : null
+
+            const setLineStyle = (style: 'solid' | 'pace' | 'hr') => {
+              if (style === 'pace' && paceDefaults) {
+                updateTrack(track.id, {
+                  lineStyle: 'pace',
+                  paceScaleMin: track.paceScaleMin ?? paceDefaults.min,
+                  paceScaleMax: track.paceScaleMax ?? paceDefaults.max,
+                })
+              } else if (style === 'hr' && hrDefaults) {
+                updateTrack(track.id, {
+                  lineStyle: 'hr',
+                  hrScaleMin: track.hrScaleMin ?? hrDefaults.min,
+                  hrScaleMax: track.hrScaleMax ?? hrDefaults.max,
+                })
+              } else {
+                updateTrack(track.id, { lineStyle: 'solid' })
+              }
+            }
+
+            const setPaceMin = (value: number) => {
+              updateTrack(
+                track.id,
+                { paceScaleMin: value },
+                `track:${track.id}:paceScale`,
+              )
+            }
+
+            const setPaceMax = (value: number) => {
+              updateTrack(
+                track.id,
+                { paceScaleMax: value },
+                `track:${track.id}:paceScale`,
+              )
+            }
+
+            const setHrMin = (value: number) => {
+              updateTrack(
+                track.id,
+                { hrScaleMin: value },
+                `track:${track.id}:hrScale`,
+              )
+            }
+
+            const setHrMax = (value: number) => {
+              updateTrack(
+                track.id,
+                { hrScaleMax: value },
+                `track:${track.id}:hrScale`,
+              )
+            }
+
+            const swatchBackground = hrMode
+              ? `linear-gradient(90deg, ${HR_LOW_COLOR}, ${HR_HIGH_COLOR})`
+              : paceMode
+                ? 'linear-gradient(90deg, #16a34a, #dc2626)'
+                : track.color
 
             return (
               <li key={track.id} className="modal-track">
                 <div className="modal-track-top">
                   <span
                     className="modal-track-swatch"
-                    style={{ background: track.color }}
+                    style={{ background: swatchBackground }}
                     aria-hidden
                   />
                   <span className="modal-track-name" title={track.name}>
@@ -176,6 +269,44 @@ export default function EditGpxModal({
 
                 {!isCropping && (
                   <div className="modal-track-controls">
+                    {(timing || hasHr) && (
+                      <div
+                        className="gpx-line-style-toggle"
+                        role="group"
+                        aria-label="Line style"
+                      >
+                        <button
+                          type="button"
+                          className={
+                            !paceMode && !hrMode ? 'active' : undefined
+                          }
+                          aria-pressed={!paceMode && !hrMode}
+                          onClick={() => setLineStyle('solid')}
+                        >
+                          Solid
+                        </button>
+                        {timing && (
+                          <button
+                            type="button"
+                            className={paceMode ? 'active' : undefined}
+                            aria-pressed={paceMode}
+                            onClick={() => setLineStyle('pace')}
+                          >
+                            Pace
+                          </button>
+                        )}
+                        {hasHr && (
+                          <button
+                            type="button"
+                            className={hrMode ? 'active' : undefined}
+                            aria-pressed={hrMode}
+                            onClick={() => setLineStyle('hr')}
+                          >
+                            HR
+                          </button>
+                        )}
+                      </div>
+                    )}
                     <div className="modal-track-colors">
                       {TRACK_COLORS.map((color) => (
                         <button
@@ -206,24 +337,94 @@ export default function EditGpxModal({
                       />
                       <span>{width}</span>
                     </label>
-                    <label className="modal-track-slider">
-                      <span className="modal-track-slider-label">Opac</span>
-                      <input
-                        type="range"
-                        min={10}
-                        max={100}
-                        value={opacity}
-                        aria-label="Opacity"
-                        onChange={(e) =>
-                          updateTrack(
-                            track.id,
-                            { opacity: Number(e.target.value) / 100 },
-                            `track:${track.id}:opacity`,
-                          )
-                        }
-                      />
-                      <span>{opacity}%</span>
-                    </label>
+                    <div className="modal-track-sliders-row">
+                      <label className="modal-track-slider">
+                        <span className="modal-track-slider-label">Opac</span>
+                        <input
+                          type="range"
+                          min={10}
+                          max={100}
+                          value={opacity}
+                          aria-label="Opacity"
+                          onChange={(e) =>
+                            updateTrack(
+                              track.id,
+                              { opacity: Number(e.target.value) / 100 },
+                              `track:${track.id}:opacity`,
+                            )
+                          }
+                        />
+                        <span>{opacity}%</span>
+                      </label>
+                      {paceMode && paceScale && (
+                        <div className="modal-track-slider modal-track-slider-pace">
+                          <i
+                            className="modal-track-pace-swatch"
+                            style={{ background: '#16a34a' }}
+                            title="Fast (green)"
+                            aria-hidden
+                          />
+                          <span className="modal-track-slider-value">
+                            {formatPace(paceScale.min)}
+                          </span>
+                          <DualRangeSlider
+                            className="modal-track-pace-dual"
+                            min={PACE_SLIDER_MIN}
+                            max={PACE_SLIDER_MAX}
+                            step={PACE_SLIDER_STEP}
+                            valueMin={paceScale.min}
+                            valueMax={paceScale.max}
+                            onChangeMin={setPaceMin}
+                            onChangeMax={setPaceMax}
+                            ariaLabelMin="Green pace (fast)"
+                            ariaLabelMax="Red pace (slow)"
+                          />
+                          <span className="modal-track-slider-value">
+                            {formatPace(paceScale.max)}
+                          </span>
+                          <i
+                            className="modal-track-pace-swatch"
+                            style={{ background: '#dc2626' }}
+                            title="Slow (red)"
+                            aria-hidden
+                          />
+                        </div>
+                      )}
+                      {hrMode && hrScale && (
+                        <div className="modal-track-slider modal-track-slider-pace">
+                          <i
+                            className="modal-track-pace-swatch"
+                            style={{ background: HR_LOW_COLOR }}
+                            title="Low HR (dark red)"
+                            aria-hidden
+                          />
+                          <span className="modal-track-slider-value">
+                            {Math.round(hrScale.min)}
+                          </span>
+                          <DualRangeSlider
+                            className="modal-track-pace-dual dual-range-hr"
+                            min={HR_SLIDER_MIN}
+                            max={HR_SLIDER_MAX}
+                            step={HR_SLIDER_STEP}
+                            valueMin={hrScale.min}
+                            valueMax={hrScale.max}
+                            onChangeMin={setHrMin}
+                            onChangeMax={setHrMax}
+                            ariaLabelMin="Low heart rate"
+                            ariaLabelMax="High heart rate"
+                          />
+                          <span className="modal-track-slider-value">
+                            {Math.round(hrScale.max)}
+                          </span>
+                          <i
+                            className="modal-track-pace-swatch"
+                            style={{ background: HR_HIGH_COLOR }}
+                            title="High HR (bright red)"
+                            aria-hidden
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 

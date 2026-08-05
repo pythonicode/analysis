@@ -1,5 +1,9 @@
 import type { GpxTrack } from '../types'
-import { cumulativeDistancesFromLatLon } from './gpxMetrics'
+import {
+  cumulativeDistancesFromLatLon,
+  defaultPaceScale,
+  hasTrackTiming,
+} from './gpxMetrics'
 
 interface ParsedGpx {
   name: string
@@ -12,6 +16,8 @@ interface ParsedGpx {
   vertexTimes?: number[]
   /** Cumulative geodesic distance in meters per vertex */
   vertexDistances: number[]
+  /** Heart rate bpm per vertex when GPX includes HR extensions */
+  vertexHeartRates?: number[]
 }
 
 /** Web Mercator projection; y is flipped so north is up in canvas coordinates. */
@@ -27,6 +33,23 @@ function parseTimeMs(node: Element): number | undefined {
   if (!text) return undefined
   const ms = Date.parse(text)
   return Number.isFinite(ms) ? ms : undefined
+}
+
+/** Read HR from Garmin/Strava-style extensions (any namespace; localName hr|heartrate). */
+function parseHeartRateBpm(node: Element): number | undefined {
+  const walk = (el: Element): number | undefined => {
+    const name = el.localName.toLowerCase()
+    if (name === 'hr' || name === 'heartrate') {
+      const v = Number(el.textContent?.trim())
+      if (Number.isFinite(v) && v > 0 && v < 400) return v
+    }
+    for (const child of Array.from(el.children)) {
+      const found = walk(child)
+      if (found != null) return found
+    }
+    return undefined
+  }
+  return walk(node)
 }
 
 /**
@@ -45,6 +68,7 @@ export function parseGpx(xml: string, fileName: string): ParsedGpx {
 
   const coords: { lat: number; lon: number }[] = []
   const times: (number | undefined)[] = []
+  const heartRates: (number | undefined)[] = []
   const projected: { x: number; y: number }[] = []
 
   for (const node of pointNodes) {
@@ -53,6 +77,7 @@ export function parseGpx(xml: string, fileName: string): ParsedGpx {
     if (Number.isFinite(lat) && Number.isFinite(lon)) {
       coords.push({ lat, lon })
       times.push(parseTimeMs(node))
+      heartRates.push(parseHeartRateBpm(node))
       projected.push(project(lat, lon))
     }
   }
@@ -91,7 +116,29 @@ export function parseGpx(xml: string, fileName: string): ParsedGpx {
     ? times.map((t, i) => t ?? times[i - 1] ?? times[i + 1] ?? 0)
     : undefined
 
-  return { name, points, width, height, vertexTimes, vertexDistances }
+  const hasAnyHr = heartRates.some((h) => h != null)
+  const vertexHeartRates = hasAnyHr
+    ? heartRates.map((h, i) => {
+        if (h != null) return h
+        for (let d = 1; d < heartRates.length; d++) {
+          const prev = heartRates[i - d]
+          if (prev != null) return prev
+          const next = heartRates[i + d]
+          if (next != null) return next
+        }
+        return 0
+      })
+    : undefined
+
+  return {
+    name,
+    points,
+    width,
+    height,
+    vertexTimes,
+    vertexDistances,
+    vertexHeartRates,
+  }
 }
 
 export const TRACK_COLORS = [
@@ -138,15 +185,26 @@ export function buildTrack(
     i % 2 === 0 ? v * fit + offsetX : v * fit + offsetY,
   )
 
-  return {
+  const track: GpxTrack = {
     id: crypto.randomUUID(),
     name: parsed.name,
     points,
     anchors: [],
-    color: TRACK_COLORS[index % TRACK_COLORS.length],
+    color: TRACK_COLORS[index % TRACK_COLORS.length]!,
     opacity: 0.85,
     width: defaultGpxStrokeWidth(target),
+    lineStyle: 'solid',
     vertexTimes: parsed.vertexTimes,
     vertexDistances: parsed.vertexDistances,
+    vertexHeartRates: parsed.vertexHeartRates,
   }
+
+  if (hasTrackTiming(track)) {
+    const scale = defaultPaceScale(track)
+    track.lineStyle = 'pace'
+    track.paceScaleMin = scale.min
+    track.paceScaleMax = scale.max
+  }
+
+  return track
 }

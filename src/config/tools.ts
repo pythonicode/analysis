@@ -9,7 +9,7 @@ import {
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import type { Tool } from '../types'
 
-export const SWATCHES = ['#e11d48', '#2563eb', '#16a34a', '#f59e0b', '#08060d']
+export const SWATCHES = ['#e11d48', '#2563eb', '#16a34a', '#f59e0b']
 
 export const TOOLS: {
   id: Tool

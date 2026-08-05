@@ -43,10 +43,22 @@ export interface GpxTrack {
   opacity: number
   /** Stroke width in map units; omitted in older saved projects */
   width?: number
+  /** solid = single color; pace = green→red; hr = dark→bright red. Omitted = solid */
+  lineStyle?: 'solid' | 'pace' | 'hr'
+  /** Fast end of pace scale (green), min/km; used when lineStyle === 'pace' */
+  paceScaleMin?: number
+  /** Slow end of pace scale (red), min/km; used when lineStyle === 'pace' */
+  paceScaleMax?: number
+  /** Low end of HR scale (dark red), bpm; used when lineStyle === 'hr' */
+  hrScaleMin?: number
+  /** High end of HR scale (bright red), bpm; used when lineStyle === 'hr' */
+  hrScaleMax?: number
   /** Epoch ms from GPX `<time>` per vertex; length = points.length / 2 */
   vertexTimes?: number[]
   /** Cumulative geodesic distance in meters per vertex; length = points.length / 2 */
   vertexDistances?: number[]
+  /** Heart rate bpm per vertex from GPX extensions; length = points.length / 2 */
+  vertexHeartRates?: number[]
 }
 
 export interface Annotation {

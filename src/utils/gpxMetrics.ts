@@ -3,6 +3,10 @@ import type { GpxTrack } from '../types'
 const EARTH_RADIUS_M = 6_371_000
 const MAX_PACE_MIN_PER_KM = 20
 const PACE_SMOOTH_WINDOW = 5
+const HR_SMOOTH_WINDOW = 5
+const HR_SCALE_FLOOR = 60
+const HR_SCALE_CEILING = 220
+const HR_MISSING_COLOR = '#9ca3af'
 
 /** Great-circle distance between two WGS84 points in meters. */
 export function haversineM(
@@ -35,12 +39,168 @@ export function hasTrackTiming(track: GpxTrack): boolean {
   return times.some((t, i) => i > 0 && Number.isFinite(t) && t > times[i - 1]!)
 }
 
+export function hasTrackHeartRate(track: GpxTrack): boolean {
+  const hrs = track.vertexHeartRates
+  if (!hrs || hrs.length < 2) return false
+  let count = 0
+  for (const h of hrs) {
+    if (Number.isFinite(h) && h > 0) {
+      count++
+      if (count >= 2) return true
+    }
+  }
+  return false
+}
+
 /** Format pace as m:ss /km */
 export function formatPace(minPerKm: number): string {
   const totalSec = Math.round(minPerKm * 60)
   const min = Math.floor(totalSec / 60)
   const sec = totalSec % 60
   return `${min}:${sec.toString().padStart(2, '0')}/km`
+}
+
+const PACE_SCALE_FLOOR = 2
+const PACE_SCALE_CEILING = MAX_PACE_MIN_PER_KM
+const PACE_MISSING_COLOR = '#9ca3af'
+
+/**
+ * Default green/red pace scale from the track’s smoothed pace series.
+ * Falls back to a typical running range when timing is absent.
+ */
+export function defaultPaceScale(track: GpxTrack): { min: number; max: number } {
+  const { samples, hasTiming } = computePaceSeries(track)
+  if (!hasTiming) {
+    return { min: 4, max: 8 }
+  }
+  const paces = samples
+    .map((s) => s.paceMinPerKm)
+    .filter((p): p is number => p != null && Number.isFinite(p))
+  if (paces.length === 0) {
+    return { min: 4, max: 8 }
+  }
+  const rawMin = Math.min(...paces)
+  const rawMax = Math.max(...paces)
+  let min = Math.max(PACE_SCALE_FLOOR, rawMin - 0.25)
+  let max = Math.min(PACE_SCALE_CEILING, rawMax + 0.25)
+  if (max - min < 0.5) {
+    const mid = (min + max) / 2
+    min = Math.max(PACE_SCALE_FLOOR, mid - 0.25)
+    max = Math.min(PACE_SCALE_CEILING, mid + 0.25)
+  }
+  if (min >= max) {
+    return { min: 4, max: 8 }
+  }
+  return { min, max }
+}
+
+/**
+ * Map pace (min/km) onto green (fast) → red (slow). Null pace → gray.
+ */
+export function paceToColor(
+  paceMinPerKm: number | null,
+  scaleMin: number,
+  scaleMax: number,
+): string {
+  if (paceMinPerKm == null || !Number.isFinite(paceMinPerKm)) {
+    return PACE_MISSING_COLOR
+  }
+  const span = scaleMax - scaleMin
+  const t =
+    span <= 0
+      ? 0.5
+      : Math.min(1, Math.max(0, (paceMinPerKm - scaleMin) / span))
+  // t=0 fast → green (120°); t=1 slow → red (0°)
+  const hue = 120 * (1 - t)
+  return `hsl(${hue} 72% 42%)`
+}
+
+/**
+ * Default dark/bright red HR scale from the track’s smoothed HR series.
+ * Falls back to a typical aerobic range when HR data is absent.
+ */
+export function defaultHrScale(track: GpxTrack): { min: number; max: number } {
+  const { samples, hasHeartRate } = computeHrSeries(track)
+  if (!hasHeartRate) {
+    return { min: 120, max: 170 }
+  }
+  const rates = samples
+    .map((s) => s.hrBpm)
+    .filter((h): h is number => h != null && Number.isFinite(h) && h > 0)
+  if (rates.length === 0) {
+    return { min: 120, max: 170 }
+  }
+  const rawMin = Math.min(...rates)
+  const rawMax = Math.max(...rates)
+  let min = Math.max(HR_SCALE_FLOOR, Math.floor(rawMin - 2))
+  let max = Math.min(HR_SCALE_CEILING, Math.ceil(rawMax + 2))
+  if (max - min < 5) {
+    const mid = (min + max) / 2
+    min = Math.max(HR_SCALE_FLOOR, Math.floor(mid - 2.5))
+    max = Math.min(HR_SCALE_CEILING, Math.ceil(mid + 2.5))
+  }
+  if (min >= max) {
+    return { min: 120, max: 170 }
+  }
+  return { min, max }
+}
+
+/**
+ * Map HR (bpm) onto dark red (low) → bright red (high). Null HR → gray.
+ */
+export function hrToColor(
+  hrBpm: number | null,
+  scaleMin: number,
+  scaleMax: number,
+): string {
+  if (hrBpm == null || !Number.isFinite(hrBpm) || hrBpm <= 0) {
+    return HR_MISSING_COLOR
+  }
+  const span = scaleMax - scaleMin
+  const t =
+    span <= 0
+      ? 0.5
+      : Math.min(1, Math.max(0, (hrBpm - scaleMin) / span))
+  // dark red → light bright red
+  const saturation = 75 + t * 20
+  const lightness = 10 + t * 58
+  return `hsl(0 ${saturation}% ${lightness}%)`
+}
+
+export interface HrSample {
+  vertexIndex: number
+  /** Smoothed heart rate in bpm; null when unavailable */
+  hrBpm: number | null
+}
+
+/** One sample per vertex; HR at index i colors the segment ending at i. */
+export function computeHrSeries(track: GpxTrack): {
+  samples: HrSample[]
+  hasHeartRate: boolean
+} {
+  const n = track.points.length / 2
+  const hrs = track.vertexHeartRates
+  const hasHeartRate = hasTrackHeartRate(track)
+
+  const samples: HrSample[] = []
+  for (let i = 0; i < n; i++) {
+    samples.push({ vertexIndex: i, hrBpm: null })
+  }
+
+  if (!hasHeartRate || !hrs) {
+    return { samples, hasHeartRate: false }
+  }
+
+  const raw: (number | null)[] = hrs.map((h) =>
+    Number.isFinite(h) && h > 0 ? h : null,
+  )
+  const smoothed = movingAverage(raw, HR_SMOOTH_WINDOW)
+
+  for (let i = 0; i < n; i++) {
+    samples[i]!.hrBpm = smoothed[i] ?? null
+  }
+
+  return { samples, hasHeartRate: true }
 }
 
 function rawSegmentPace(
@@ -142,6 +302,7 @@ export function cropTrack(
     const base = sliceDistances[0] ?? 0
     sliceDistances = sliceDistances.map((d) => d - base)
   }
+  const sliceHeartRates = track.vertexHeartRates?.slice(start, end + 1)
 
   const keptAnchors = track.anchors.filter((anchor) => {
     const idx = anchorVertexIndex(track, anchor)
@@ -153,6 +314,7 @@ export function cropTrack(
     points: slicePoints,
     vertexTimes: sliceTimes,
     vertexDistances: sliceDistances,
+    vertexHeartRates: sliceHeartRates,
     anchors: keptAnchors,
   }
 }

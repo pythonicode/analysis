@@ -1,7 +1,11 @@
+import { useState } from 'react'
 import { SWATCHES } from '../config/tools'
 import { useAppStore } from '../store'
+import ColorPickerModal from './ColorPickerModal'
 import Tooltip from './Tooltip'
 import type { LayoutMode } from '../hooks/useLayoutMode'
+
+const DEFAULT_CUSTOM_COLOR = '#08060d'
 
 export default function StrokeSettings({
   layoutMode,
@@ -15,7 +19,42 @@ export default function StrokeSettings({
   const strokeOpacity = useAppStore((s) => s.strokeOpacity)
   const setStrokeOpacity = useAppStore((s) => s.setStrokeOpacity)
 
+  const [customColor, setCustomColor] = useState(() =>
+    SWATCHES.includes(strokeColor) ? DEFAULT_CUSTOM_COLOR : strokeColor,
+  )
+  const [pickerOpen, setPickerOpen] = useState(false)
+
   const isTouch = layoutMode === 'touch'
+  const isCustomActive = !SWATCHES.includes(strokeColor)
+
+  const applyCustomColor = (color: string) => {
+    setCustomColor(color)
+    setStrokeColor(color)
+    setPickerOpen(false)
+  }
+
+  const customSwatch = (
+    <button
+      type="button"
+      className={`swatch swatch-custom${isCustomActive ? ' active' : ''}`}
+      aria-label="Custom color"
+      aria-pressed={isCustomActive}
+      onClick={() => setPickerOpen(true)}
+    >
+      <span
+        className="swatch-custom-fill"
+        style={{ background: isCustomActive ? strokeColor : customColor }}
+      />
+    </button>
+  )
+
+  const colorPickerModal = pickerOpen ? (
+    <ColorPickerModal
+      initialColor={isCustomActive ? strokeColor : customColor}
+      onApply={applyCustomColor}
+      onClose={() => setPickerOpen(false)}
+    />
+  ) : null
 
   if (isTouch) {
     return (
@@ -61,8 +100,10 @@ export default function StrokeSettings({
                 onClick={() => setStrokeColor(color)}
               />
             ))}
+            {customSwatch}
           </div>
         </div>
+        {colorPickerModal}
       </div>
     )
   }
@@ -115,8 +156,12 @@ export default function StrokeSettings({
               />
             </Tooltip>
           ))}
+          <Tooltip content="Pick a custom color" side="right">
+            {customSwatch}
+          </Tooltip>
         </div>
       </div>
+      {colorPickerModal}
     </>
   )
 }
