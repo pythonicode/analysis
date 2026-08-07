@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Anchor, Scissors, Trash2, Upload, X } from 'lucide-react'
 import { useAppStore } from '../store'
 import {
@@ -12,6 +12,7 @@ import {
   formatPace,
   hasTrackHeartRate,
   hasTrackTiming,
+  parsePace,
 } from '../utils/gpxMetrics'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import Tooltip from './Tooltip'
@@ -20,12 +21,78 @@ import DualRangeSlider from './DualRangeSlider'
 
 const PACE_SLIDER_MIN = 2
 const PACE_SLIDER_MAX = 20
-const PACE_SLIDER_STEP = 0.1
+/** One second of pace (min/km); matches m:ss typing precision */
+const PACE_SLIDER_STEP = 1 / 60
 const HR_SLIDER_MIN = 60
 const HR_SLIDER_MAX = 220
 const HR_SLIDER_STEP = 1
 const HR_LOW_COLOR = '#2a0404'
 const HR_HIGH_COLOR = '#ff9a9a'
+
+function clampToStep(
+  value: number,
+  min: number,
+  max: number,
+  step: number,
+): number {
+  const clamped = Math.min(Math.max(value, min), max)
+  const steps = Math.round((clamped - min) / step)
+  // Keep enough precision for 1-second pace steps without float drift
+  return Number((min + steps * step).toFixed(6))
+}
+
+function ScaleValueInput({
+  value,
+  format,
+  parse,
+  onCommit,
+  ariaLabel,
+}: {
+  value: number
+  format: (n: number) => string
+  parse: (s: string) => number | null
+  onCommit: (n: number) => void
+  ariaLabel: string
+}) {
+  const [draft, setDraft] = useState<string | null>(null)
+  const cancelRef = useRef(false)
+  const display = draft ?? format(value)
+
+  return (
+    <input
+      type="text"
+      className="modal-track-scale-input"
+      value={display}
+      aria-label={ariaLabel}
+      spellCheck={false}
+      onFocus={() => {
+        cancelRef.current = false
+        setDraft(format(value))
+      }}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        if (!cancelRef.current && draft != null) {
+          const parsed = parse(draft)
+          if (parsed != null) onCommit(parsed)
+        }
+        cancelRef.current = false
+        setDraft(null)
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          e.currentTarget.blur()
+        } else if (e.key === 'Escape') {
+          e.preventDefault()
+          e.stopPropagation()
+          cancelRef.current = true
+          setDraft(null)
+          e.currentTarget.blur()
+        }
+      }}
+    />
+  )
+}
 
 export default function EditGpxModal({
   layoutMode,
@@ -178,6 +245,59 @@ export default function EditGpxModal({
                 { hrScaleMax: value },
                 `track:${track.id}:hrScale`,
               )
+            }
+
+            const commitPaceMin = (raw: number) => {
+              if (!paceScale) return
+              setPaceMin(
+                clampToStep(
+                  raw,
+                  PACE_SLIDER_MIN,
+                  paceScale.max - PACE_SLIDER_STEP,
+                  PACE_SLIDER_STEP,
+                ),
+              )
+            }
+
+            const commitPaceMax = (raw: number) => {
+              if (!paceScale) return
+              setPaceMax(
+                clampToStep(
+                  raw,
+                  paceScale.min + PACE_SLIDER_STEP,
+                  PACE_SLIDER_MAX,
+                  PACE_SLIDER_STEP,
+                ),
+              )
+            }
+
+            const commitHrMin = (raw: number) => {
+              if (!hrScale) return
+              setHrMin(
+                clampToStep(
+                  raw,
+                  HR_SLIDER_MIN,
+                  hrScale.max - HR_SLIDER_STEP,
+                  HR_SLIDER_STEP,
+                ),
+              )
+            }
+
+            const commitHrMax = (raw: number) => {
+              if (!hrScale) return
+              setHrMax(
+                clampToStep(
+                  raw,
+                  hrScale.min + HR_SLIDER_STEP,
+                  HR_SLIDER_MAX,
+                  HR_SLIDER_STEP,
+                ),
+              )
+            }
+
+            const parseHr = (text: string): number | null => {
+              const n = Number(text.trim().replace(',', '.'))
+              return Number.isFinite(n) ? n : null
             }
 
             const swatchBackground = hrMode
@@ -364,9 +484,13 @@ export default function EditGpxModal({
                             title="Fast (green)"
                             aria-hidden
                           />
-                          <span className="modal-track-slider-value">
-                            {formatPace(paceScale.min)}
-                          </span>
+                          <ScaleValueInput
+                            value={paceScale.min}
+                            format={formatPace}
+                            parse={parsePace}
+                            onCommit={commitPaceMin}
+                            ariaLabel="Green pace (fast)"
+                          />
                           <DualRangeSlider
                             className="modal-track-pace-dual"
                             min={PACE_SLIDER_MIN}
@@ -379,9 +503,13 @@ export default function EditGpxModal({
                             ariaLabelMin="Green pace (fast)"
                             ariaLabelMax="Red pace (slow)"
                           />
-                          <span className="modal-track-slider-value">
-                            {formatPace(paceScale.max)}
-                          </span>
+                          <ScaleValueInput
+                            value={paceScale.max}
+                            format={formatPace}
+                            parse={parsePace}
+                            onCommit={commitPaceMax}
+                            ariaLabel="Red pace (slow)"
+                          />
                           <i
                             className="modal-track-pace-swatch"
                             style={{ background: '#dc2626' }}
@@ -398,9 +526,13 @@ export default function EditGpxModal({
                             title="Low HR (dark red)"
                             aria-hidden
                           />
-                          <span className="modal-track-slider-value">
-                            {Math.round(hrScale.min)}
-                          </span>
+                          <ScaleValueInput
+                            value={hrScale.min}
+                            format={(n) => String(Math.round(n))}
+                            parse={parseHr}
+                            onCommit={commitHrMin}
+                            ariaLabel="Low heart rate"
+                          />
                           <DualRangeSlider
                             className="modal-track-pace-dual dual-range-hr"
                             min={HR_SLIDER_MIN}
@@ -413,9 +545,13 @@ export default function EditGpxModal({
                             ariaLabelMin="Low heart rate"
                             ariaLabelMax="High heart rate"
                           />
-                          <span className="modal-track-slider-value">
-                            {Math.round(hrScale.max)}
-                          </span>
+                          <ScaleValueInput
+                            value={hrScale.max}
+                            format={(n) => String(Math.round(n))}
+                            parse={parseHr}
+                            onCommit={commitHrMax}
+                            ariaLabel="High heart rate"
+                          />
                           <i
                             className="modal-track-pace-swatch"
                             style={{ background: HR_HIGH_COLOR }}
@@ -449,14 +585,21 @@ export default function EditGpxModal({
         <div className="modal-footer">
           <button
             type="button"
-            className="button button-primary"
+            className="button button-outline"
             onClick={() => {
               onUploadNew()
               onClose()
             }}
           >
             <Upload size={14} aria-hidden />
-            Upload GPX
+            Upload
+          </button>
+          <button
+            type="button"
+            className="button button-primary"
+            onClick={onClose}
+          >
+            Confirm
           </button>
         </div>
       </div>

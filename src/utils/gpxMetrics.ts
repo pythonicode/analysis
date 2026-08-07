@@ -60,6 +60,26 @@ export function formatPace(minPerKm: number): string {
   return `${min}:${sec.toString().padStart(2, '0')}/km`
 }
 
+/** Parse pace from m:ss, m:ss/km, or decimal minutes. */
+export function parsePace(text: string): number | null {
+  const cleaned = text
+    .trim()
+    .toLowerCase()
+    .replace(/\s*\/\s*km\s*$/, '')
+    .replace(',', '.')
+  if (!cleaned) return null
+  const colon = cleaned.match(/^(\d+):(\d{1,2})$/)
+  if (colon) {
+    const min = Number(colon[1])
+    const sec = Number(colon[2])
+    if (!Number.isFinite(min) || !Number.isFinite(sec) || sec >= 60) return null
+    const value = min + sec / 60
+    return value > 0 ? value : null
+  }
+  const n = Number(cleaned)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
 const PACE_SCALE_FLOOR = 2
 const PACE_SCALE_CEILING = MAX_PACE_MIN_PER_KM
 const PACE_MISSING_COLOR = '#9ca3af'

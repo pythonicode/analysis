@@ -17,6 +17,8 @@ export const TOOLS: {
   shortLabel: string
   tip: string
   touchTip: string
+  /** Desktop keyboard shortcut; matches toolbar order (1–6) */
+  hotkey: string
   icon: typeof Hand
 }[] = [
   {
@@ -25,6 +27,7 @@ export const TOOLS: {
     shortLabel: 'Select',
     tip: 'Click paths or markers to select them. Press Delete to remove.',
     touchTip: 'Tap paths or markers to select them.',
+    hotkey: '1',
     icon: MousePointer2,
   },
   {
@@ -33,6 +36,7 @@ export const TOOLS: {
     shortLabel: 'Pan',
     tip: 'Drag the map to move around. Hold Space or middle mouse for temporary pan.',
     touchTip: 'Drag with one finger, or use two fingers to pan in any tool.',
+    hotkey: '2',
     icon: Hand,
   },
   {
@@ -41,6 +45,7 @@ export const TOOLS: {
     shortLabel: 'Draw',
     tip: 'Click and drag to draw lines on the map.',
     touchTip: 'Drag your finger to draw lines on the map.',
+    hotkey: '3',
     icon: Pencil,
   },
   {
@@ -49,6 +54,7 @@ export const TOOLS: {
     shortLabel: 'Marker',
     tip: 'Click to place a numbered marker with a comment.',
     touchTip: 'Tap to place a numbered marker with a comment.',
+    hotkey: '4',
     icon: MapPin,
   },
   {
@@ -57,6 +63,7 @@ export const TOOLS: {
     shortLabel: 'Eraser',
     tip: 'Click or drag over paths and markers to remove them.',
     touchTip: 'Tap or drag over paths and markers to remove them.',
+    hotkey: '5',
     icon: Eraser,
   },
   {
@@ -65,9 +72,16 @@ export const TOOLS: {
     shortLabel: 'GPX',
     tip: 'Click the track to add pins, drag to move them, right-click a pin to delete it.',
     touchTip: 'Tap the track to add pins. Long-press a pin to delete it.',
+    hotkey: '6',
     icon: Anchor,
   },
 ]
+
+/** Resolve a tool from a keyboard key (number row or numpad). */
+export function getToolByHotkey(key: string): (typeof TOOLS)[number] | undefined {
+  // Numpad Digits use '1'..'6' as key as well; Digit1 etc. handled via e.key
+  return TOOLS.find((t) => t.hotkey === key)
+}
 
 export function getToolTip(id: Tool, layoutMode: LayoutMode): string {
   const tool = TOOLS.find((t) => t.id === id)

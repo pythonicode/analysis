@@ -6,7 +6,7 @@ import { ImagePlus } from 'lucide-react'
 import { useAppStore } from '../store'
 import { stageRef } from '../stageRef'
 import { simplifyPath } from '../utils/geometry'
-import { importDroppedFiles } from '../utils/files'
+import { importDroppedFiles, importImageFile } from '../utils/files'
 import { openSampleProject } from '../utils/project'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import { usePinchZoom } from '../hooks/usePinchZoom'
@@ -50,6 +50,7 @@ export default function CanvasArea({
   const [middleMouseHeld, setMiddleMouseHeld] = useState(false)
   const [draft, setDraft] = useState<DraftStroke | null>(null)
   const [loadingSample, setLoadingSample] = useState(false)
+  const mapInputRef = useRef<HTMLInputElement>(null)
   const lastFittedSrc = useRef<string | null>(null)
   const erasingRef = useRef(false)
 
@@ -434,17 +435,39 @@ export default function CanvasArea({
             <h2>No map loaded</h2>
             <p>
               {isTouch
-                ? 'Import a map image from the menu to get started.'
+                ? 'Import a map image to get started.'
                 : 'Import a map image to get started, or drop a file here.'}
             </p>
-            <button
-              type="button"
-              className="button button-primary canvas-empty-action"
-              disabled={loadingSample}
-              onClick={() => void handleLoadSample()}
-            >
-              {loadingSample ? 'Loading sample…' : 'Open sample project'}
-            </button>
+            <input
+              ref={mapInputRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) void importImageFile(file)
+                e.target.value = ''
+              }}
+            />
+            <div className="canvas-empty-actions">
+              <button
+                type="button"
+                className="button button-primary"
+                disabled={loadingSample}
+                onClick={() => mapInputRef.current?.click()}
+              >
+                <ImagePlus size={14} aria-hidden />
+                Import Map
+              </button>
+              <button
+                type="button"
+                className="button button-outline"
+                disabled={loadingSample}
+                onClick={() => void handleLoadSample()}
+              >
+                {loadingSample ? 'Loading sample…' : 'Open Sample Project'}
+              </button>
+            </div>
           </div>
         </div>
       )}
