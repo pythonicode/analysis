@@ -1,8 +1,11 @@
+import { useState } from 'react'
 import { Minus, Plus } from 'lucide-react'
 import { getToolLabel } from '../config/tools'
+import type { LegalDocumentId } from '../content/legal'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import { useAppStore } from '../store'
 import CanvasRotationControl from './CanvasRotationControl'
+import LegalModal from './LegalModal'
 
 const MIN_SCALE = 0.05
 const MAX_SCALE = 8
@@ -17,10 +20,13 @@ export default function StatusBar({
   const viewport = useAppStore((s) => s.viewport)
   const setViewport = useAppStore((s) => s.setViewport)
   const pointer = useAppStore((s) => s.pointer)
+  const [legalDoc, setLegalDoc] = useState<LegalDocumentId | null>(null)
 
   const showCoords = layoutMode === 'desktop'
   const showZoomButtons = layoutMode === 'touch'
   const showRotation = layoutMode !== 'touch'
+  const showLegalLinks = layoutMode !== 'touch'
+  const showCredit = layoutMode === 'desktop'
 
   const zoomBy = (direction: 1 | -1) => {
     const oldScale = viewport.scale
@@ -68,6 +74,45 @@ export default function StatusBar({
         </span>
       )}
       <span className="statusbar-tool">Tool: {getToolLabel(activeTool)}</span>
+      {showLegalLinks && (
+        <nav className="statusbar-legal" aria-label="Legal">
+          <button
+            type="button"
+            className="statusbar-legal-link"
+            onClick={() => setLegalDoc('privacy')}
+          >
+            Privacy
+          </button>
+          <span className="statusbar-legal-sep" aria-hidden>
+            ·
+          </span>
+          <button
+            type="button"
+            className="statusbar-legal-link"
+            onClick={() => setLegalDoc('terms')}
+          >
+            Terms
+          </button>
+           {showCredit && (
+            <>
+            <span className="statusbar-legal-sep" aria-hidden>
+                ·
+              </span>
+              <a
+                className="statusbar-legal-link statusbar-credit"
+                href="https://anthonyriley.org"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                by Anthony Riley ❤️
+              </a>
+            </>
+          )}
+        </nav>
+      )}
+      {legalDoc && (
+        <LegalModal documentId={legalDoc} onClose={() => setLegalDoc(null)} />
+      )}
     </footer>
   )
 }

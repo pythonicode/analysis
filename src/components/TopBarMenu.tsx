@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   Download,
   FilePlus,
+  FileText,
   FolderOpen,
   HardDriveDownload,
   Image,
@@ -10,9 +11,12 @@ import {
   RefreshCw,
   Route,
   Save,
+  Shield,
 } from 'lucide-react'
+import type { LegalDocumentId } from '../content/legal'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import BottomSheet from './BottomSheet'
+import LegalModal from './LegalModal'
 
 export interface TopBarMenuAction {
   id: string
@@ -32,9 +36,40 @@ export default function TopBarMenu({
   actions: TopBarMenuAction[]
 }) {
   const [open, setOpen] = useState(false)
+  const [legalDoc, setLegalDoc] = useState<LegalDocumentId | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   const visibleActions = actions.filter((a) => !a.hidden)
+
+  const openLegal = (id: LegalDocumentId) => {
+    setOpen(false)
+    setLegalDoc(id)
+  }
+
+  const legalMenuItems = (
+    <ul className="topbar-menu-list">
+      <li>
+        <button
+          type="button"
+          className="topbar-menu-item"
+          onClick={() => openLegal('privacy')}
+        >
+          <Shield size={16} aria-hidden />
+          <span>Privacy Policy</span>
+        </button>
+      </li>
+      <li>
+        <button
+          type="button"
+          className="topbar-menu-item"
+          onClick={() => openLegal('terms')}
+        >
+          <FileText size={16} aria-hidden />
+          <span>Terms of Service</span>
+        </button>
+      </li>
+    </ul>
+  )
 
   useEffect(() => {
     if (!open || layoutMode !== 'compact') return
@@ -90,8 +125,15 @@ export default function TopBarMenu({
                 <h3>File</h3>
                 {menuItems}
               </div>
+              <div className="topbar-menu-section">
+                <h3>Legal</h3>
+                {legalMenuItems}
+              </div>
             </div>
           </BottomSheet>
+        )}
+        {legalDoc && (
+          <LegalModal documentId={legalDoc} onClose={() => setLegalDoc(null)} />
         )}
       </>
     )

@@ -231,6 +231,12 @@
   color: var(--accent);
 }
 
+.topbar-menu-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
 .topbar-menu-section h3 {
   font-size: 11px;
   text-transform: uppercase;
@@ -2123,6 +2129,74 @@
   margin-left: auto;
   color: var(--text-h);
   text-transform: capitalize;
+}
+
+.statusbar-legal {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.statusbar-legal-link {
+  padding: 0;
+  font: inherit;
+  font-size: 11px;
+  color: var(--text);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+a.statusbar-legal-link {
+  text-decoration: underline;
+}
+
+.statusbar-legal-link:hover {
+  color: var(--text-h);
+}
+
+.statusbar-legal-sep {
+  color: var(--border);
+  font-size: 11px;
+  user-select: none;
+}
+
+.modal-legal {
+  max-width: 560px;
+  max-height: min(80vh, 720px);
+}
+
+.legal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  font: 13px/1.5 var(--sans);
+  color: var(--text);
+}
+
+.legal-updated {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text);
+  opacity: 0.8;
+}
+
+.legal-section h3 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  color: var(--text-h);
+}
+
+.legal-section p {
+  margin: 0 0 8px;
+}
+
+.legal-section p:last-child {
+  margin-bottom: 0;
 }
 
 .statusbar-zoom-controls {
