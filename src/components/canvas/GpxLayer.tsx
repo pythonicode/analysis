@@ -22,6 +22,24 @@ import { getMapPointer } from '../../utils/mapPointer'
 
 const LONG_PRESS_MS = 500
 
+/** Viewport-sized buffer so heat-map segments flatten before opacity is applied. */
+let heatMapScratch: HTMLCanvasElement | null = null
+
+function getHeatMapScratch(
+  width: number,
+  height: number,
+): HTMLCanvasElement | null {
+  if (width < 1 || height < 1) return null
+  if (!heatMapScratch) {
+    heatMapScratch = document.createElement('canvas')
+  }
+  if (heatMapScratch.width !== width || heatMapScratch.height !== height) {
+    heatMapScratch.width = width
+    heatMapScratch.height = height
+  }
+  return heatMapScratch
+}
+
 function Track({
   track,
   adjustMode,
@@ -169,31 +187,73 @@ function Track({
 
   const drawHeatMapStroke = (context: Context) => {
     const ctx = context._context
-    ctx.save()
-    ctx.globalAlpha = track.opacity
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-    ctx.lineWidth = strokeWidth
+    const scratch = getHeatMapScratch(ctx.canvas.width, ctx.canvas.height)
+    const octx = scratch?.getContext('2d')
+    if (!scratch || !octx) return
+
     const n = warped.length / 2
+    if (n < 2) return
+
+    const colorAt = (index: number): string => {
+      if (paceMode && paceScale) {
+        return paceToColor(
+          paceSamples[index]?.paceMinPerKm ?? null,
+          paceScale.min,
+          paceScale.max,
+        )
+      }
+      if (hrMode && hrScale) {
+        return hrToColor(
+          hrSamples[index]?.hrBpm ?? null,
+          hrScale.min,
+          hrScale.max,
+        )
+      }
+      return '#9ca3af'
+    }
+
+    octx.setTransform(1, 0, 0, 1, 0, 0)
+    octx.clearRect(0, 0, scratch.width, scratch.height)
+    octx.setTransform(ctx.getTransform())
+    octx.globalAlpha = 1
+    octx.lineCap = 'round'
+    octx.lineJoin = 'round'
+
+    octx.lineWidth = outlineWidth
+    octx.strokeStyle = '#000000'
+    octx.beginPath()
+    octx.moveTo(warped[0]!, warped[1]!)
+    for (let i = 1; i < n; i++) {
+      octx.lineTo(warped[i * 2]!, warped[i * 2 + 1]!)
+    }
+    octx.stroke()
+
+    octx.lineWidth = strokeWidth
     for (let i = 1; i < n; i++) {
       const x0 = warped[(i - 1) * 2]!
       const y0 = warped[(i - 1) * 2 + 1]!
       const x1 = warped[i * 2]!
       const y1 = warped[i * 2 + 1]!
-      if (paceMode && paceScale) {
-        const pace = paceSamples[i]?.paceMinPerKm ?? null
-        ctx.strokeStyle = paceToColor(pace, paceScale.min, paceScale.max)
-      } else if (hrMode && hrScale) {
-        const hr = hrSamples[i]?.hrBpm ?? null
-        ctx.strokeStyle = hrToColor(hr, hrScale.min, hrScale.max)
+      const cEnd = colorAt(i)
+      const cStart = i === 1 ? cEnd : colorAt(i - 1)
+      if (cStart === cEnd) {
+        octx.strokeStyle = cEnd
       } else {
-        continue
+        const gradient = octx.createLinearGradient(x0, y0, x1, y1)
+        gradient.addColorStop(0, cStart)
+        gradient.addColorStop(1, cEnd)
+        octx.strokeStyle = gradient
       }
-      ctx.beginPath()
-      ctx.moveTo(x0, y0)
-      ctx.lineTo(x1, y1)
-      ctx.stroke()
+      octx.beginPath()
+      octx.moveTo(x0, y0)
+      octx.lineTo(x1, y1)
+      octx.stroke()
     }
+
+    ctx.save()
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.globalAlpha = track.opacity
+    ctx.drawImage(scratch, 0, 0)
     ctx.restore()
   }
 
@@ -208,7 +268,7 @@ function Track({
             hitStrokeWidth={strokeWidth * 5}
             lineCap="round"
             lineJoin="round"
-            opacity={track.opacity}
+            opacity={0}
             listening={adjustMode}
             onClick={addAnchorAtPointer}
             onTap={addAnchorAtPointer}
