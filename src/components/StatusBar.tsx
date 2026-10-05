@@ -84,7 +84,7 @@ export default function StatusBar({
         </span>
       )}
       <label className="statusbar-font">
-        <span>Font</span>
+        <span>Text Size</span>
         <input
           className="statusbar-font-slider"
           type="range"
