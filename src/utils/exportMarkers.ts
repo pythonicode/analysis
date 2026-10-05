@@ -4,6 +4,7 @@ import {
   COMMENT_LINE_HEIGHT,
   COMMENT_PADDING,
   clampCommentBoxWidth,
+  commentLabelBadgeLayout,
   measureCommentBox,
 } from './markerComments'
 import type { Annotation } from '../types'
@@ -51,21 +52,20 @@ function drawCommentMarker(
   }
 
   const label = markerLabel(index)
-  const badgeRadius = label.length === 1 ? 5 : 5.5
-  const badgeInset = 2
-  const badgeX = left + metrics.width - badgeRadius - badgeInset
-  const badgeY = top + metrics.height - badgeRadius - badgeInset
+  const badge = commentLabelBadgeLayout(label, textScale)
+  const badgeX = left + badge.offsetX
+  const badgeY = top + badge.offsetY
 
   ctx.fillStyle = annotation.color
   ctx.beginPath()
-  ctx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2)
+  ctx.arc(badgeX, badgeY, badge.radius, 0, Math.PI * 2)
   ctx.fill()
   ctx.strokeStyle = '#ffffff'
-  ctx.lineWidth = 0.75
+  ctx.lineWidth = 0.6 * textScale
   ctx.stroke()
 
   ctx.fillStyle = '#ffffff'
-  ctx.font = `700 ${badgeRadius * (label.length > 1 ? 0.85 : 1.1)}px ${FONT}`
+  ctx.font = `700 ${badge.fontSize}px ${FONT}`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText(label, badgeX, badgeY)

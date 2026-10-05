@@ -2125,6 +2125,25 @@
   padding-bottom: calc(4px + env(safe-area-inset-bottom, 0px));
 }
 
+.statusbar-font {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text);
+}
+
+.statusbar-font-slider {
+  width: 72px;
+  accent-color: var(--accent);
+}
+
+.statusbar-font-value {
+  min-width: 36px;
+  color: var(--text-h);
+  text-align: right;
+}
+
 .statusbar-tool {
   margin-left: auto;
   color: var(--text-h);

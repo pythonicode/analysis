@@ -5,6 +5,38 @@ export const COMMENT_LINE_HEIGHT = 1.25
 export const MIN_COMMENT_BOX_WIDTH = 32
 export const MAX_COMMENT_BOX_WIDTH = 220
 
+export interface CommentLabelBadgeLayout {
+  radius: number
+  fontSize: number
+  /** Badge center, relative to the box's top-left corner. */
+  offsetX: number
+  offsetY: number
+}
+
+/**
+ * Letter chip for comment mode. Its center sits on the top-left corner so the
+ * chip overlaps the box, and it stays inside the padding so it misses the text.
+ * Longer labels shift slightly outward when they would otherwise reach a glyph.
+ */
+export function commentLabelBadgeLayout(
+  label: string,
+  scale = 1,
+): CommentLabelBadgeLayout {
+  const radius = (label.length === 1 ? 3.5 : 4.25) * scale
+  const fontSize = radius * (label.length === 1 ? 1.25 : 0.9)
+  const padding = COMMENT_PADDING * scale
+  const clearance = 0.75 * scale
+  const reach = padding * Math.SQRT2
+  const needed = radius + clearance
+  const outward = needed > reach ? needed / Math.SQRT2 - padding : 0
+  return {
+    radius,
+    fontSize,
+    offsetX: -outward,
+    offsetY: -outward,
+  }
+}
+
 const FONT_FAMILY = 'system-ui, "Segoe UI", Roboto, sans-serif'
 
 let measureCanvas: HTMLCanvasElement | null = null
@@ -29,14 +61,22 @@ export function clampCommentBoxWidth(width: number): number {
   )
 }
 
-/** Map-local x of the box right edge → inner text wrap width. */
-export function textWidthFromRightEdge(localRightEdgeX: number): number {
-  return clampCommentBoxWidth(localRightEdgeX * 2 - COMMENT_PADDING * 2)
+/** Map-local x of the box right edge → unscaled inner text wrap width. */
+export function textWidthFromRightEdge(
+  localRightEdgeX: number,
+  textScale = 1,
+): number {
+  const scale = textScale > 0 ? textScale : 1
+  return clampCommentBoxWidth((localRightEdgeX * 2) / scale - COMMENT_PADDING * 2)
 }
 
-/** Inner text wrap width → map-local x of the box right edge. */
-export function rightEdgeFromTextWidth(textWidth: number): number {
-  return (clampCommentBoxWidth(textWidth) + COMMENT_PADDING * 2) / 2
+/** Unscaled inner text wrap width → map-local x of the box right edge. */
+export function rightEdgeFromTextWidth(
+  textWidth: number,
+  textScale = 1,
+): number {
+  const scale = textScale > 0 ? textScale : 1
+  return ((clampCommentBoxWidth(textWidth) + COMMENT_PADDING * 2) / 2) * scale
 }
 
 function wrapText(

@@ -4,6 +4,11 @@ import { getToolLabel } from '../config/tools'
 import type { LegalDocumentId } from '../content/legal'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import { useAppStore } from '../store'
+import {
+  ANNOTATION_TEXT_SCALE_MAX,
+  ANNOTATION_TEXT_SCALE_MIN,
+  ANNOTATION_TEXT_SCALE_STEP,
+} from '../utils/annotationTextScale'
 import { stageRef } from '../stageRef'
 import CanvasRotationControl from './CanvasRotationControl'
 import LegalModal from './LegalModal'
@@ -21,6 +26,10 @@ export default function StatusBar({
   const scale = useAppStore((s) => s.viewport.scale)
   const setViewport = useAppStore((s) => s.setViewport)
   const pointer = useAppStore((s) => s.pointer)
+  const textScalePct = useAppStore((s) => s.annotationTextScalePct)
+  const setAnnotationTextScalePct = useAppStore(
+    (s) => s.setAnnotationTextScalePct,
+  )
   const [legalDoc, setLegalDoc] = useState<LegalDocumentId | null>(null)
 
   const showCoords = layoutMode === 'desktop'
@@ -74,6 +83,24 @@ export default function StatusBar({
           </button>
         </span>
       )}
+      <label className="statusbar-font">
+        <span>Font</span>
+        <input
+          className="statusbar-font-slider"
+          type="range"
+          min={ANNOTATION_TEXT_SCALE_MIN}
+          max={ANNOTATION_TEXT_SCALE_MAX}
+          step={ANNOTATION_TEXT_SCALE_STEP}
+          value={textScalePct}
+          aria-label="Font size"
+          aria-valuemin={ANNOTATION_TEXT_SCALE_MIN}
+          aria-valuemax={ANNOTATION_TEXT_SCALE_MAX}
+          aria-valuenow={textScalePct}
+          aria-valuetext={`${textScalePct}%`}
+          onChange={(e) => setAnnotationTextScalePct(Number(e.target.value))}
+        />
+        <span className="statusbar-font-value">{textScalePct}%</span>
+      </label>
       {showCoords && (
         <span>
           {pointer

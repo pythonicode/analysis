@@ -2,6 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Download, Minus, Plus, RotateCcw, X } from 'lucide-react'
 import { useAppStore } from '../store'
 import {
+  ANNOTATION_TEXT_SCALE_MAX,
+  ANNOTATION_TEXT_SCALE_MIN,
+  ANNOTATION_TEXT_SCALE_STEP,
+  annotationTextScaleMultiplier,
+} from '../utils/annotationTextScale'
+import {
   defaultIncludeSidebar,
   downloadExport,
   renderExportPreviews,
@@ -9,17 +15,9 @@ import {
 } from '../utils/export'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 
-const SCALE_MIN = 50
-const SCALE_MAX = 200
-const SCALE_STEP = 5
-
 const PREVIEW_ZOOM_MIN = 1
 const PREVIEW_ZOOM_MAX = 4
 const PREVIEW_ZOOM_STEP = 0.25
-
-function scaleToMultiplier(percent: number): number {
-  return percent / 100
-}
 
 export default function ExportModal({
   layoutMode,
@@ -31,10 +29,13 @@ export default function ExportModal({
   const annotations = useAppStore((s) => s.annotations)
   const markerDisplayMode = useAppStore((s) => s.markerDisplayMode)
 
+  const textScalePct = useAppStore((s) => s.annotationTextScalePct)
+  const setAnnotationTextScalePct = useAppStore(
+    (s) => s.setAnnotationTextScalePct,
+  )
   const [includeSidebar, setIncludeSidebar] = useState(() =>
     defaultIncludeSidebar(markerDisplayMode, annotations.length),
   )
-  const [textScalePct, setTextScalePct] = useState(100)
   const [previews, setPreviews] = useState<ExportPreviewImages | null>(null)
   const [previewLoading, setPreviewLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
@@ -51,7 +52,7 @@ export default function ExportModal({
     panY: number
   } | null>(null)
 
-  const textScale = scaleToMultiplier(textScalePct)
+  const textScale = annotationTextScaleMultiplier(textScalePct)
 
   const refreshPreview = useCallback(async () => {
     setPreviewLoading(true)
@@ -359,12 +360,14 @@ export default function ExportModal({
                 <span className="export-slider-label">Text size</span>
                 <input
                   type="range"
-                  min={SCALE_MIN}
-                  max={SCALE_MAX}
-                  step={SCALE_STEP}
+                  min={ANNOTATION_TEXT_SCALE_MIN}
+                  max={ANNOTATION_TEXT_SCALE_MAX}
+                  step={ANNOTATION_TEXT_SCALE_STEP}
                   value={textScalePct}
                   aria-label="Text size"
-                  onChange={(e) => setTextScalePct(Number(e.target.value))}
+                  onChange={(e) =>
+                    setAnnotationTextScalePct(Number(e.target.value))
+                  }
                 />
                 <span className="export-slider-value">{textScalePct}%</span>
               </label>

@@ -4,6 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppStore } from '../../store'
 import { areExportMarkersSuppressed } from '../../utils/export'
 import { stageRef } from '../../stageRef'
+import { annotationTextScaleMultiplier } from '../../utils/annotationTextScale'
 import { markerLabel } from '../../utils/labels'
 import {
   COMMENT_FONT_SIZE,
@@ -11,6 +12,7 @@ import {
   COMMENT_MAX_TEXT_WIDTH,
   COMMENT_PADDING,
   clampCommentBoxWidth,
+  commentLabelBadgeLayout,
   measureCommentBox,
   textWidthFromRightEdge,
 } from '../../utils/markerComments'
@@ -47,19 +49,25 @@ function resolveTextWidth(
 
 function measureForAnnotation(
   annotation: Annotation,
+  textScale: number,
   previewTextWidth?: number,
 ) {
   const text = commentBodyText(annotation)
   const hasExplicitWidth =
     previewTextWidth !== undefined || annotation.commentBoxWidth !== undefined
-  const maxTextWidth = resolveTextWidth(annotation, previewTextWidth)
+  const storedTextWidth = resolveTextWidth(annotation, previewTextWidth)
+  const fontSize = COMMENT_FONT_SIZE * textScale
+  const padding = COMMENT_PADDING * textScale
+  const maxTextWidth = storedTextWidth * textScale
 
   return {
     isPlaceholder: annotation.comment.trim() === '',
-    ...measureCommentBox(text, maxTextWidth, COMMENT_FONT_SIZE, COMMENT_PADDING, {
+    ...measureCommentBox(text, maxTextWidth, fontSize, padding, {
       shrinkToContent: !hasExplicitWidth,
     }),
     textWidth: maxTextWidth,
+    fontSize,
+    padding,
   }
 }
 
@@ -68,26 +76,27 @@ function CommentLabelBadge({
   color,
   boxWidth,
   boxHeight,
+  textScale,
 }: {
   label: string
   color: string
   boxWidth: number
   boxHeight: number
+  textScale: number
 }) {
-  const badgeRadius = label.length === 1 ? 5 : 5.5
-  const badgeInset = 2
-  const x = boxWidth / 2 - badgeRadius - badgeInset
-  const y = boxHeight / 2 - badgeRadius - badgeInset
+  const badge = commentLabelBadgeLayout(label, textScale)
+  const x = -boxWidth / 2 + badge.offsetX
+  const y = -boxHeight / 2 + badge.offsetY
 
   return (
     <>
       <Circle
         x={x}
         y={y}
-        radius={badgeRadius}
+        radius={badge.radius}
         fill={color}
         stroke="#ffffff"
-        strokeWidth={0.75}
+        strokeWidth={0.6 * textScale}
         listening={false}
       />
       <Text
@@ -96,11 +105,11 @@ function CommentLabelBadge({
         y={y}
         fill="#ffffff"
         fontStyle="bold"
-        fontSize={label.length === 1 ? 6 : 4.5}
-        width={badgeRadius * 2}
-        height={badgeRadius * 2}
-        offsetX={badgeRadius}
-        offsetY={badgeRadius}
+        fontSize={badge.fontSize}
+        width={badge.radius * 2}
+        height={badge.radius * 2}
+        offsetX={badge.radius}
+        offsetY={badge.radius}
         align="center"
         verticalAlign="middle"
         listening={false}
@@ -114,6 +123,7 @@ function CommentBox({
   index,
   selected,
   previewTextWidth,
+  textScale,
   viewportScale,
   layoutMode,
   onResizePointerDown,
@@ -122,14 +132,16 @@ function CommentBox({
   index: number
   selected: boolean
   previewTextWidth?: number
+  textScale: number
   viewportScale: number
   layoutMode: LayoutMode
   onResizePointerDown: (e: KonvaEventObject<PointerEvent>) => void
 }) {
-  const { width, height, lineText, textWidth, isPlaceholder } = useMemo(
-    () => measureForAnnotation(annotation, previewTextWidth),
-    [annotation, previewTextWidth],
-  )
+  const { width, height, lineText, textWidth, isPlaceholder, fontSize, padding } =
+    useMemo(
+      () => measureForAnnotation(annotation, textScale, previewTextWidth),
+      [annotation, previewTextWidth, textScale],
+    )
   const gripWidth = Math.max(10 / viewportScale, 6)
   const label = markerLabel(index)
   const isTouch = layoutMode === 'touch'
@@ -146,7 +158,7 @@ function CommentBox({
         fill="rgba(255, 255, 255, 0.94)"
         stroke={selected ? '#08060d' : '#c4c4cc'}
         strokeWidth={selected ? 1.5 : 1}
-        cornerRadius={4}
+        cornerRadius={4 * textScale}
         shadowColor={useShadow ? '#000000' : undefined}
         shadowBlur={useShadow ? 4 : 0}
         shadowOpacity={useShadow ? 0.22 : 0}
@@ -154,11 +166,11 @@ function CommentBox({
         hitStrokeWidth={hitPadding}
       />
       <Text
-        x={-width / 2 + COMMENT_PADDING}
-        y={-height / 2 + COMMENT_PADDING}
+        x={-width / 2 + padding}
+        y={-height / 2 + padding}
         text={lineText}
         width={textWidth}
-        fontSize={COMMENT_FONT_SIZE}
+        fontSize={fontSize}
         lineHeight={COMMENT_LINE_HEIGHT}
         fill={isPlaceholder ? '#71717a' : '#18181b'}
         fontStyle={isPlaceholder ? 'italic' : 'normal'}
@@ -169,6 +181,7 @@ function CommentBox({
         color={annotation.color}
         boxWidth={width}
         boxHeight={height}
+        textScale={textScale}
       />
       {selected && (
         <>
@@ -211,6 +224,7 @@ const MarkerNode = memo(function MarkerNode({
   selectable,
   showComments,
   previewTextWidth,
+  textScale,
   viewportScale,
   layoutMode,
   hitMultiplier,
@@ -223,6 +237,7 @@ const MarkerNode = memo(function MarkerNode({
   selectable: boolean
   showComments: boolean
   previewTextWidth?: number
+  textScale: number
   viewportScale: number
   layoutMode: LayoutMode
   hitMultiplier: number
@@ -262,6 +277,7 @@ const MarkerNode = memo(function MarkerNode({
           index={index}
           selected={selectable && selected}
           previewTextWidth={previewTextWidth}
+          textScale={textScale}
           viewportScale={viewportScale}
           layoutMode={layoutMode}
           onResizePointerDown={(e) => onResizePointerDown(e, annotation)}
@@ -310,6 +326,9 @@ function MarkersLayer({
   const selectedId = useAppStore((s) => s.selectedId)
   const markerDisplayMode = useAppStore((s) => s.markerDisplayMode)
   const viewportScale = useAppStore((s) => s.viewport.scale)
+  const textScale = useAppStore((s) =>
+    annotationTextScaleMultiplier(s.annotationTextScalePct),
+  )
   const updateAnnotation = useAppStore((s) => s.updateAnnotation)
 
   const selectable = activeTool === 'select'
@@ -336,7 +355,7 @@ function MarkersLayer({
       if (!pos) return
 
       const localRightEdge = pos.x - annotation.position.x
-      const textWidth = textWidthFromRightEdge(localRightEdge)
+      const textWidth = textWidthFromRightEdge(localRightEdge, textScale)
       setPreviewWidths((current) => ({ ...current, [resizingId]: textWidth }))
     }
 
@@ -362,7 +381,7 @@ function MarkersLayer({
       window.removeEventListener('pointerup', onPointerUp)
       window.removeEventListener('pointercancel', onPointerUp)
     }
-  }, [annotations, resizingId, updateAnnotation])
+  }, [annotations, resizingId, textScale, updateAnnotation])
 
   const beginResize = useCallback(
     (e: KonvaEventObject<PointerEvent>, annotation: Annotation) => {
@@ -375,7 +394,10 @@ function MarkersLayer({
         stage.setPointersPositions(e.evt)
         const pos = getMapPointer(stage)
         if (pos) {
-          startWidth = textWidthFromRightEdge(pos.x - annotation.position.x)
+          startWidth = textWidthFromRightEdge(
+            pos.x - annotation.position.x,
+            textScale,
+          )
         }
       }
 
@@ -385,7 +407,7 @@ function MarkersLayer({
       }))
       setResizingId(annotation.id)
     },
-    [],
+    [textScale],
   )
 
   if (areExportMarkersSuppressed()) {
@@ -404,6 +426,7 @@ function MarkersLayer({
             selectable={selectable}
             showComments={showComments}
             previewTextWidth={previewWidths[annotation.id]}
+            textScale={textScale}
             viewportScale={viewportScale}
             layoutMode={layoutMode}
             hitMultiplier={hitMultiplier}

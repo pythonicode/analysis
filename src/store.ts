@@ -16,6 +16,10 @@ import type {
   Tool,
   Viewport,
 } from './types'
+import {
+  ANNOTATION_TEXT_SCALE_DEFAULT,
+  clampAnnotationTextScalePct,
+} from './utils/annotationTextScale'
 import { clampViewport, DEFAULT_VIEWPORT } from './utils/viewport'
 
 /** The undoable part of the state: the analysis content itself. */
@@ -42,6 +46,7 @@ interface PersistedProject {
   strokeColor: string
   strokeOpacity: number
   markerDisplayMode: MarkerDisplayMode
+  annotationTextScalePct: number
   rotation: number
 }
 
@@ -57,6 +62,7 @@ function samePersisted(a: PersistedProject, b: PersistedProject): boolean {
     a.strokeColor === b.strokeColor &&
     a.strokeOpacity === b.strokeOpacity &&
     a.markerDisplayMode === b.markerDisplayMode &&
+    a.annotationTextScalePct === b.annotationTextScalePct &&
     a.rotation === b.rotation
   )
 }
@@ -129,6 +135,7 @@ interface AppState extends Snapshot {
   importError: string | null
   annotationsOpen: boolean
   markerDisplayMode: MarkerDisplayMode
+  annotationTextScalePct: number
   toastMessage: string | null
 
   past: Snapshot[]
@@ -149,6 +156,7 @@ interface AppState extends Snapshot {
   closeAnnotations: () => void
   toggleAnnotations: () => void
   setMarkerDisplayMode: (mode: MarkerDisplayMode) => void
+  setAnnotationTextScalePct: (percent: number) => void
   setToastMessage: (message: string | null) => void
 
   addTrack: (track: GpxTrack) => void
@@ -231,6 +239,7 @@ export const useAppStore = create<AppState>()(
   importError: null,
   annotationsOpen: false,
   markerDisplayMode: 'labels',
+  annotationTextScalePct: ANNOTATION_TEXT_SCALE_DEFAULT,
   toastMessage: null,
 
   past: [],
@@ -251,6 +260,8 @@ export const useAppStore = create<AppState>()(
   toggleAnnotations: () =>
     set((s) => ({ annotationsOpen: !s.annotationsOpen })),
   setMarkerDisplayMode: (mode) => set({ markerDisplayMode: mode }),
+  setAnnotationTextScalePct: (percent) =>
+    set({ annotationTextScalePct: clampAnnotationTextScalePct(percent) }),
   setToastMessage: (message) => set({ toastMessage: message }),
 
   addTrack: (track) =>
@@ -373,6 +384,7 @@ export const useAppStore = create<AppState>()(
         strokeColor: s.strokeColor,
         strokeOpacity: s.strokeOpacity,
         markerDisplayMode: s.markerDisplayMode,
+        annotationTextScalePct: s.annotationTextScalePct,
         rotation: s.viewport.rotation,
       }),
       merge: (persistedState, currentState) => {
