@@ -28,8 +28,9 @@ function getCenter(
 export function usePinchZoom(
   containerRef: RefObject<HTMLElement | null>,
   enabled: boolean,
-  viewport: Viewport,
-  setViewport: (v: Viewport) => void,
+  getViewport: () => Viewport,
+  onPreview: (viewport: Viewport) => void,
+  onCommit: (viewport: Viewport) => void,
   minScale: number,
   maxScale: number,
 ) {
@@ -38,13 +39,19 @@ export function usePinchZoom(
   )
   const lastPinchDistRef = useRef<number | null>(null)
   const lastPanCenterRef = useRef<{ x: number; y: number } | null>(null)
-  const viewportRef = useRef(viewport)
-  viewportRef.current = viewport
+  const viewportRef = useRef(getViewport())
+  const getViewportRef = useRef(getViewport)
+  const onPreviewRef = useRef(onPreview)
+  const onCommitRef = useRef(onCommit)
+  getViewportRef.current = getViewport
+  onPreviewRef.current = onPreview
+  onCommitRef.current = onCommit
 
   useEffect(() => {
     if (!enabled) return
     const container = containerRef.current
     if (!container) return
+    const pointers = pointersRef.current
 
     const getStagePoint = (clientX: number, clientY: number) => {
       const rect = container.getBoundingClientRect()
@@ -73,12 +80,13 @@ export function usePinchZoom(
 
     const onPointerDown = (e: PointerEvent) => {
       if (e.pointerType !== 'touch') return
-      pointersRef.current.set(e.pointerId, {
+      pointers.set(e.pointerId, {
         clientX: e.clientX,
         clientY: e.clientY,
       })
-      if (pointersRef.current.size === 2) {
-        const pts = [...pointersRef.current.values()]
+      if (pointers.size === 2) {
+        const pts = [...pointers.values()]
+        viewportRef.current = getViewportRef.current()
         lastPinchDistRef.current = getDistance(pts[0], pts[1])
         lastPanCenterRef.current = getCenter(pts[0], pts[1])
         e.preventDefault()
@@ -86,16 +94,16 @@ export function usePinchZoom(
     }
 
     const onPointerMove = (e: PointerEvent) => {
-      if (!pointersRef.current.has(e.pointerId)) return
-      pointersRef.current.set(e.pointerId, {
+      if (!pointers.has(e.pointerId)) return
+      pointers.set(e.pointerId, {
         clientX: e.clientX,
         clientY: e.clientY,
       })
 
-      if (pointersRef.current.size !== 2) return
+      if (pointers.size !== 2) return
       e.preventDefault()
 
-      const pts = [...pointersRef.current.values()]
+      const pts = [...pointers.values()]
       const dist = getDistance(pts[0], pts[1])
       const center = getCenter(pts[0], pts[1])
       const vp = viewportRef.current
@@ -123,12 +131,14 @@ export function usePinchZoom(
           nextY += center.y - lastPanCenterRef.current.y
         }
 
-        setViewport({
+        const next = {
           scale: newScale,
           x: nextX,
           y: nextY,
           rotation: vp.rotation,
-        })
+        }
+        viewportRef.current = next
+        onPreviewRef.current(next)
       }
 
       lastPinchDistRef.current = dist
@@ -136,8 +146,10 @@ export function usePinchZoom(
     }
 
     const onPointerUp = (e: PointerEvent) => {
-      pointersRef.current.delete(e.pointerId)
-      if (pointersRef.current.size < 2) {
+      const wasPinching = lastPinchDistRef.current !== null
+      pointers.delete(e.pointerId)
+      if (pointers.size < 2) {
+        if (wasPinching) onCommitRef.current(viewportRef.current)
         lastPinchDistRef.current = null
         lastPanCenterRef.current = null
       }
@@ -153,11 +165,11 @@ export function usePinchZoom(
       container.removeEventListener('pointermove', onPointerMove)
       container.removeEventListener('pointerup', onPointerUp)
       container.removeEventListener('pointercancel', onPointerUp)
-      pointersRef.current.clear()
+      pointers.clear()
       lastPinchDistRef.current = null
       lastPanCenterRef.current = null
     }
-  }, [containerRef, enabled, setViewport, minScale, maxScale])
+  }, [containerRef, enabled, minScale, maxScale])
 }
 
 export { MIN_DISTANCE as TOUCH_DRAG_THRESHOLD }

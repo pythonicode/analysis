@@ -12,27 +12,36 @@ export default function CanvasRotationControl({
   compact?: boolean
 }) {
   const mapImage = useAppStore((s) => s.mapImage)
-  const viewport = useAppStore((s) => s.viewport)
+  const rotation = useAppStore((s) => s.viewport.rotation)
   const setViewport = useAppStore((s) => s.setViewport)
 
   if (!mapImage) return null
 
   const applyRotation = (degrees: number) => {
-    const rotation = clampRotation(degrees)
-    const mapCenter = { x: mapImage.width / 2, y: mapImage.height / 2 }
+    const nextRotation = clampRotation(degrees)
+    const stored = useAppStore.getState().viewport
     const stage = stageRef.current
+    const viewport = stage
+      ? {
+          ...stored,
+          scale: stage.scaleX(),
+          x: stage.x(),
+          y: stage.y(),
+        }
+      : stored
+    const mapCenter = { x: mapImage.width / 2, y: mapImage.height / 2 }
     if (stage) {
       setViewport(
         rotateViewportKeepingCenter(
           viewport,
-          rotation,
+          nextRotation,
           mapCenter,
           { x: stage.width() / 2, y: stage.height() / 2 },
         ),
       )
       return
     }
-    setViewport({ ...viewport, rotation })
+    setViewport({ ...viewport, rotation: nextRotation })
   }
 
   return (
@@ -51,14 +60,14 @@ export default function CanvasRotationControl({
         min={MIN_ROTATION}
         max={MAX_ROTATION}
         step={1}
-        value={viewport.rotation}
+        value={rotation}
         aria-valuemin={MIN_ROTATION}
         aria-valuemax={MAX_ROTATION}
-        aria-valuenow={viewport.rotation}
-        aria-valuetext={`${viewport.rotation} degrees`}
+        aria-valuenow={rotation}
+        aria-valuetext={`${rotation} degrees`}
         onChange={(e) => applyRotation(Number(e.target.value))}
       />
-      <span className="canvas-rotation-value">{viewport.rotation}°</span>
+      <span className="canvas-rotation-value">{rotation}°</span>
       <button
         type="button"
         className="canvas-rotation-reset"

@@ -18,11 +18,15 @@ function pointSegmentDistance(
 
 /**
  * Ramer-Douglas-Peucker simplification on a flattened [x1, y1, x2, y2, ...] polyline.
- * Returns a new flattened array; endpoints are always kept.
+ * Returns kept vertex indices; endpoints are always kept.
  */
-export function simplifyPath(points: number[], epsilon: number): number[] {
+export function simplifyPathIndices(points: number[], epsilon: number): number[] {
   const n = points.length / 2
-  if (n <= 2) return points.slice()
+  if (n <= 2) {
+    const indices: number[] = []
+    for (let i = 0; i < n; i++) indices.push(i)
+    return indices
+  }
 
   const keep = new Array<boolean>(n).fill(false)
   keep[0] = true
@@ -53,9 +57,35 @@ export function simplifyPath(points: number[], epsilon: number): number[] {
     }
   }
 
-  const result: number[] = []
+  const indices: number[] = []
   for (let i = 0; i < n; i++) {
-    if (keep[i]) result.push(points[i * 2], points[i * 2 + 1])
+    if (keep[i]) indices.push(i)
+  }
+  return indices
+}
+
+/**
+ * Ramer-Douglas-Peucker simplification on a flattened [x1, y1, x2, y2, ...] polyline.
+ * Returns a new flattened array; endpoints are always kept.
+ */
+export function simplifyPath(points: number[], epsilon: number): number[] {
+  const indices = simplifyPathIndices(points, epsilon)
+  const result: number[] = []
+  for (const index of indices) {
+    result.push(points[index * 2]!, points[index * 2 + 1]!)
   }
   return result
+}
+
+/** Flattened points plus the source vertex index of each kept point. */
+export function simplifyPathKeepingIndices(
+  points: number[],
+  epsilon: number,
+): { points: number[]; indices: number[] } {
+  const indices = simplifyPathIndices(points, epsilon)
+  const simplified: number[] = []
+  for (const index of indices) {
+    simplified.push(points[index * 2]!, points[index * 2 + 1]!)
+  }
+  return { points: simplified, indices }
 }

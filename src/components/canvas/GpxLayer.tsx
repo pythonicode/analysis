@@ -1,9 +1,10 @@
-import { useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Circle, Group, Layer, Line, Shape } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { Context } from 'konva/lib/Context'
 import { useAppStore } from '../../store'
 import { nearestVertex, warpPoints } from '../../utils/warp'
+import { simplifyPathKeepingIndices } from '../../utils/geometry'
 import { resolveGpxStrokeWidth } from '../../utils/gpx'
 import {
   computeHrSeries,
@@ -15,12 +16,42 @@ import {
   hrToColor,
   paceToColor,
 } from '../../utils/gpxMetrics'
-import type { GpxTrack } from '../../types'
+import type { GpxAnchor, GpxTrack } from '../../types'
 import type { LayoutMode } from '../../hooks/useLayoutMode'
 import MapRotationGroup from './MapRotationGroup'
 import { getMapPointer } from '../../utils/mapPointer'
 
 const LONG_PRESS_MS = 500
+/** Map-unit tolerance for the live thin-plate preview while a pin is dragged. */
+const DRAG_PREVIEW_EPSILON = 2
+
+interface HeatRun {
+  color: string
+  /** Inclusive vertex index in the polyline being drawn. */
+  start: number
+  end: number
+}
+
+/** Consecutive vertices that share a quantized color, as one stroke each. */
+function buildHeatRuns(
+  vertexCount: number,
+  colorAt: (vertexIndex: number) => string,
+): HeatRun[] {
+  if (vertexCount < 2) return []
+  const runs: HeatRun[] = []
+  let start = 0
+  let color = colorAt(1)
+  for (let i = 2; i < vertexCount; i++) {
+    const next = colorAt(i)
+    if (next !== color) {
+      runs.push({ color, start, end: i - 1 })
+      color = next
+      start = i - 1
+    }
+  }
+  runs.push({ color, start, end: vertexCount - 1 })
+  return runs
+}
 
 /** Viewport-sized buffer so heat-map segments flatten before opacity is applied. */
 let heatMapScratch: HTMLCanvasElement | null = null
@@ -56,18 +87,35 @@ function Track({
   viewportScale: number
 }) {
   const updateTrack = useAppStore((s) => s.updateTrack)
-  const [dragAnchors, setDragAnchors] = useState<typeof track.anchors | null>(
-    null,
-  )
+  const [dragAnchors, setDragAnchors] = useState<GpxAnchor[] | null>(null)
   const longPressTimerRef = useRef<number | null>(null)
   const longPressIndexRef = useRef<number | null>(null)
+  const dragRafRef = useRef<number | null>(null)
+  const pendingAnchorsRef = useRef<GpxAnchor[] | null>(null)
 
   const anchors = dragAnchors ?? track.anchors
+  const anchorsRef = useRef(anchors)
+  anchorsRef.current = anchors
 
+  const previewingSpline = dragAnchors !== null && anchors.length >= 3
+  const decimated = useMemo(() => {
+    if (!previewingSpline) return null
+    return simplifyPathKeepingIndices(track.points, DRAG_PREVIEW_EPSILON)
+  }, [previewingSpline, track.points])
+
+  const sourcePoints = decimated?.points ?? track.points
   const warped = useMemo(
-    () => warpPoints(track.points, anchors),
-    [track.points, anchors],
+    () => warpPoints(sourcePoints, anchors),
+    [sourcePoints, anchors],
   )
+
+  useEffect(() => {
+    return () => {
+      if (dragRafRef.current != null) {
+        cancelAnimationFrame(dragRafRef.current)
+      }
+    }
+  }, [])
 
   const paceMode =
     track.lineStyle === 'pace' && hasTrackTiming(track)
@@ -141,16 +189,29 @@ function Track({
   }
 
   const movePin = (index: number, e: KonvaEventObject<DragEvent>) => {
-    const next = anchors.map((a, i) =>
+    const base = pendingAnchorsRef.current ?? anchorsRef.current
+    const next = base.map((a, i) =>
       i === index ? { ...a, target: { x: e.target.x(), y: e.target.y() } } : a,
     )
-    setDragAnchors(next)
+    pendingAnchorsRef.current = next
+    if (dragRafRef.current != null) return
+    dragRafRef.current = requestAnimationFrame(() => {
+      dragRafRef.current = null
+      const pending = pendingAnchorsRef.current
+      if (pending) setDragAnchors(pending)
+    })
   }
 
   const commitPin = (index: number, e: KonvaEventObject<DragEvent>) => {
-    const next = anchors.map((a, i) =>
+    if (dragRafRef.current != null) {
+      cancelAnimationFrame(dragRafRef.current)
+      dragRafRef.current = null
+    }
+    const base = pendingAnchorsRef.current ?? anchorsRef.current
+    const next = base.map((a, i) =>
       i === index ? { ...a, target: { x: e.target.x(), y: e.target.y() } } : a,
     )
+    pendingAnchorsRef.current = null
     setDragAnchors(null)
     updateTrack(track.id, { anchors: next })
   }
@@ -185,32 +246,70 @@ function Track({
   const borderWidth = 2 / Math.max(viewportScale, 0.001)
   const outlineWidth = strokeWidth + borderWidth
 
-  const drawHeatMapStroke = (context: Context) => {
-    const ctx = context._context
-    const scratch = getHeatMapScratch(ctx.canvas.width, ctx.canvas.height)
-    const octx = scratch?.getContext('2d')
-    if (!scratch || !octx) return
-
-    const n = warped.length / 2
-    if (n < 2) return
-
-    const colorAt = (index: number): string => {
+  const heatRuns = useMemo(() => {
+    if (!heatMapMode) return []
+    const vertexCount = warped.length / 2
+    const indices = decimated?.indices
+    return buildHeatRuns(vertexCount, (index) => {
+      const sourceIndex = indices?.[index] ?? index
       if (paceMode && paceScale) {
         return paceToColor(
-          paceSamples[index]?.paceMinPerKm ?? null,
+          paceSamples[sourceIndex]?.paceMinPerKm ?? null,
           paceScale.min,
           paceScale.max,
         )
       }
       if (hrMode && hrScale) {
         return hrToColor(
-          hrSamples[index]?.hrBpm ?? null,
+          hrSamples[sourceIndex]?.hrBpm ?? null,
           hrScale.min,
           hrScale.max,
         )
       }
       return '#9ca3af'
-    }
+    })
+  }, [
+    heatMapMode,
+    warped,
+    decimated,
+    paceMode,
+    paceScale,
+    paceSamples,
+    hrMode,
+    hrScale,
+    hrSamples,
+  ])
+
+  const heatSignature = useMemo(
+    () => heatRuns.map((run) => `${run.color}:${run.end}`).join('|'),
+    [heatRuns],
+  )
+
+  const paintRef = useRef({
+    warped,
+    heatRuns,
+    outlineWidth,
+    strokeWidth,
+    opacity: track.opacity,
+  })
+  paintRef.current = {
+    warped,
+    heatRuns,
+    outlineWidth,
+    strokeWidth,
+    opacity: track.opacity,
+  }
+
+  const drawHeatMapStroke = useCallback((context: Context) => {
+    const ctx = context._context
+    const scratch = getHeatMapScratch(ctx.canvas.width, ctx.canvas.height)
+    const octx = scratch?.getContext('2d')
+    if (!scratch || !octx) return
+
+    const paint = paintRef.current
+    const points = paint.warped
+    const n = points.length / 2
+    if (n < 2) return
 
     octx.setTransform(1, 0, 0, 1, 0, 0)
     octx.clearRect(0, 0, scratch.width, scratch.height)
@@ -219,43 +318,32 @@ function Track({
     octx.lineCap = 'round'
     octx.lineJoin = 'round'
 
-    octx.lineWidth = outlineWidth
+    octx.lineWidth = paint.outlineWidth
     octx.strokeStyle = '#000000'
     octx.beginPath()
-    octx.moveTo(warped[0]!, warped[1]!)
+    octx.moveTo(points[0]!, points[1]!)
     for (let i = 1; i < n; i++) {
-      octx.lineTo(warped[i * 2]!, warped[i * 2 + 1]!)
+      octx.lineTo(points[i * 2]!, points[i * 2 + 1]!)
     }
     octx.stroke()
 
-    octx.lineWidth = strokeWidth
-    for (let i = 1; i < n; i++) {
-      const x0 = warped[(i - 1) * 2]!
-      const y0 = warped[(i - 1) * 2 + 1]!
-      const x1 = warped[i * 2]!
-      const y1 = warped[i * 2 + 1]!
-      const cEnd = colorAt(i)
-      const cStart = i === 1 ? cEnd : colorAt(i - 1)
-      if (cStart === cEnd) {
-        octx.strokeStyle = cEnd
-      } else {
-        const gradient = octx.createLinearGradient(x0, y0, x1, y1)
-        gradient.addColorStop(0, cStart)
-        gradient.addColorStop(1, cEnd)
-        octx.strokeStyle = gradient
-      }
+    octx.lineWidth = paint.strokeWidth
+    for (const run of paint.heatRuns) {
+      octx.strokeStyle = run.color
       octx.beginPath()
-      octx.moveTo(x0, y0)
-      octx.lineTo(x1, y1)
+      octx.moveTo(points[run.start * 2]!, points[run.start * 2 + 1]!)
+      for (let i = run.start + 1; i <= run.end; i++) {
+        octx.lineTo(points[i * 2]!, points[i * 2 + 1]!)
+      }
       octx.stroke()
     }
 
     ctx.save()
     ctx.setTransform(1, 0, 0, 1, 0, 0)
-    ctx.globalAlpha = track.opacity
+    ctx.globalAlpha = paint.opacity
     ctx.drawImage(scratch, 0, 0)
     ctx.restore()
-  }
+  }, [])
 
   return (
     <Group>
@@ -275,6 +363,8 @@ function Track({
           />
           <Shape
             sceneFunc={drawHeatMapStroke}
+            strokeWidth={outlineWidth}
+            fill={heatSignature}
             listening={false}
             perfectDrawEnabled={false}
           />
@@ -303,6 +393,10 @@ function Track({
             draggable
             onDragStart={() => {
               clearLongPress()
+              if (pendingAnchorsRef.current == null) {
+                pendingAnchorsRef.current = anchorsRef.current
+                setDragAnchors(anchorsRef.current)
+              }
             }}
             onDragMove={(e) => movePin(index, e)}
             onDragEnd={(e) => commitPin(index, e)}
@@ -333,7 +427,7 @@ function Track({
   )
 }
 
-export default function GpxLayer({
+function GpxLayer({
   layoutMode,
 }: {
   layoutMode: LayoutMode
@@ -365,3 +459,5 @@ export default function GpxLayer({
     </Layer>
   )
 }
+
+export default memo(GpxLayer)

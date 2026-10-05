@@ -14,10 +14,24 @@ import MapImageLayer from './canvas/MapImageLayer'
 import GpxLayer from './canvas/GpxLayer'
 import DrawingLayer, { type DraftStroke } from './canvas/DrawingLayer'
 import MarkersLayer from './canvas/MarkersLayer'
-import { MAX_SCALE, MIN_SCALE, mapToLayerLocal, rotatedBounds } from '../utils/viewport'
+import {
+  MAX_SCALE,
+  MIN_SCALE,
+  clampViewport,
+  mapToLayerLocal,
+  rotatedBounds,
+} from '../utils/viewport'
 import { getMapPointer } from '../utils/mapPointer'
+import type { Point, Viewport } from '../types'
 
 const ZOOM_FACTOR = 1.06
+const WHEEL_COMMIT_MS = 120
+
+function applyStageViewport(stage: Konva.Stage, viewport: Viewport) {
+  stage.scale({ x: viewport.scale, y: viewport.scale })
+  stage.position({ x: viewport.x, y: viewport.y })
+  stage.batchDraw()
+}
 
 export default function CanvasArea({
   layoutMode,
@@ -26,7 +40,6 @@ export default function CanvasArea({
 }) {
   const activeTool = useAppStore((s) => s.activeTool)
   const mapImage = useAppStore((s) => s.mapImage)
-  const viewport = useAppStore((s) => s.viewport)
   const setViewport = useAppStore((s) => s.setViewport)
   const setPointer = useAppStore((s) => s.setPointer)
   const setSelectedId = useAppStore((s) => s.setSelectedId)
@@ -39,6 +52,11 @@ export default function CanvasArea({
   const closeAnnotations = useAppStore((s) => s.closeAnnotations)
 
   const containerRef = useRef<HTMLDivElement>(null)
+  const viewportRef = useRef(useAppStore.getState().viewport)
+  const gestureRef = useRef(false)
+  const zoomFrameRef = useRef<number | null>(null)
+  const pendingZoomRef = useRef<Viewport | null>(null)
+  const wheelCommitRef = useRef<number | null>(null)
   const middlePanRef = useRef<{
     startX: number
     startY: number
@@ -49,10 +67,71 @@ export default function CanvasArea({
   const [spaceHeld, setSpaceHeld] = useState(false)
   const [middleMouseHeld, setMiddleMouseHeld] = useState(false)
   const [draft, setDraft] = useState<DraftStroke | null>(null)
+  const draftRef = useRef<DraftStroke | null>(null)
+  const draftLineRef = useRef<Konva.Line | null>(null)
+  const draftRafRef = useRef<number | null>(null)
+  const pointerBucketRef = useRef<{ x: number; y: number } | null>(null)
   const [loadingSample, setLoadingSample] = useState(false)
   const mapInputRef = useRef<HTMLInputElement>(null)
   const lastFittedSrc = useRef<string | null>(null)
   const erasingRef = useRef(false)
+
+  const commitViewport = useCallback(
+    (viewport: Viewport) => {
+      if (zoomFrameRef.current != null) {
+        cancelAnimationFrame(zoomFrameRef.current)
+        zoomFrameRef.current = null
+      }
+      if (wheelCommitRef.current != null) {
+        window.clearTimeout(wheelCommitRef.current)
+        wheelCommitRef.current = null
+      }
+      pendingZoomRef.current = null
+      const next = clampViewport(viewport)
+      gestureRef.current = false
+      viewportRef.current = next
+      setViewport(next)
+      const stage = stageRef.current
+      if (stage) applyStageViewport(stage, next)
+    },
+    [setViewport],
+  )
+
+  const previewZoom = useCallback((viewport: Viewport) => {
+    const next = clampViewport(viewport)
+    gestureRef.current = true
+    viewportRef.current = next
+    const stage = stageRef.current
+    if (stage) applyStageViewport(stage, next)
+    pendingZoomRef.current = next
+    if (zoomFrameRef.current != null) return
+    zoomFrameRef.current = requestAnimationFrame(() => {
+      zoomFrameRef.current = null
+      const pending = pendingZoomRef.current
+      if (!pending || !gestureRef.current) return
+      const rotation = useAppStore.getState().viewport.rotation
+      viewportRef.current = { ...viewportRef.current, rotation }
+      setViewport({ ...pending, rotation })
+    })
+  }, [setViewport])
+
+  const publishPointer = useCallback(
+    (pos: Point | null) => {
+      if (!pos) {
+        if (pointerBucketRef.current === null) return
+        pointerBucketRef.current = null
+        setPointer(null)
+        return
+      }
+      const x = Math.round(pos.x)
+      const y = Math.round(pos.y)
+      const prev = pointerBucketRef.current
+      if (prev && prev.x === x && prev.y === y) return
+      pointerBucketRef.current = { x, y }
+      setPointer({ x, y })
+    },
+    [setPointer],
+  )
 
   const isTouch = layoutMode === 'touch'
   const isDrawingTool = activeTool === 'line'
@@ -63,8 +142,9 @@ export default function CanvasArea({
   usePinchZoom(
     containerRef,
     isTouch,
-    viewport,
-    setViewport,
+    () => viewportRef.current,
+    previewZoom,
+    commitViewport,
     MIN_SCALE,
     MAX_SCALE,
   )
@@ -81,24 +161,38 @@ export default function CanvasArea({
   }, [])
 
   useEffect(() => {
+    return useAppStore.subscribe((state, prev) => {
+      if (state.viewport === prev.viewport) return
+      if (gestureRef.current) {
+        if (state.viewport.rotation !== prev.viewport.rotation) {
+          viewportRef.current = state.viewport
+          const stage = stageRef.current
+          if (stage) applyStageViewport(stage, state.viewport)
+        }
+        return
+      }
+      viewportRef.current = state.viewport
+      const stage = stageRef.current
+      if (stage) applyStageViewport(stage, state.viewport)
+    })
+  }, [])
+
+  useEffect(() => {
     if (!mapImage || size.width === 0 || size.height === 0) return
     if (lastFittedSrc.current === mapImage.src) return
     lastFittedSrc.current = mapImage.src
+    const rotation = useAppStore.getState().viewport.rotation
     const center = { x: mapImage.width / 2, y: mapImage.height / 2 }
-    const bounds = rotatedBounds(
-      mapImage.width,
-      mapImage.height,
-      viewport.rotation,
-    )
+    const bounds = rotatedBounds(mapImage.width, mapImage.height, rotation)
     const scale =
       Math.min(size.width / bounds.width, size.height / bounds.height) * 0.95
-    setViewport({
+    commitViewport({
       scale,
-      rotation: viewport.rotation,
+      rotation,
       x: size.width / 2 - center.x * scale,
       y: size.height / 2 - center.y * scale,
     })
-  }, [mapImage, size, setViewport, viewport.rotation])
+  }, [mapImage, size, commitViewport])
 
   useEffect(() => {
     const isEditableTarget = (e: KeyboardEvent) => {
@@ -158,21 +252,20 @@ export default function CanvasArea({
   useEffect(() => {
     if (isTouch) return
 
-    const endMiddlePan = () => {
-      middlePanRef.current = null
-      setMiddleMouseHeld(false)
-    }
-
     const onPointerUp = (e: PointerEvent) => {
-      if (e.button === 1) endMiddlePan()
+      if (e.button !== 1 || !middlePanRef.current) return
+      middlePanRef.current = null
+      commitViewport(viewportRef.current)
+      setMiddleMouseHeld(false)
     }
 
     window.addEventListener('pointerup', onPointerUp)
     return () => window.removeEventListener('pointerup', onPointerUp)
-  }, [isTouch])
+  }, [isTouch, commitViewport])
 
   const attachStage = useCallback((node: Konva.Stage | null) => {
     stageRef.current = node
+    if (node) applyStageViewport(node, viewportRef.current)
   }, [])
 
   const handleWheel = (e: KonvaEventObject<WheelEvent>) => {
@@ -182,6 +275,7 @@ export default function CanvasArea({
     const pointer = stage.getPointerPosition()
     if (!pointer) return
 
+    const viewport = viewportRef.current
     const oldScale = viewport.scale
     const direction = e.evt.deltaY > 0 ? -1 : 1
     const newScale = Math.min(
@@ -193,17 +287,24 @@ export default function CanvasArea({
     )
     const mapPoint = getMapPointer(stage)
     if (!mapPoint) return
-    const mapImage = useAppStore.getState().mapImage
-    const center = mapImage
-      ? { x: mapImage.width / 2, y: mapImage.height / 2 }
+    const image = useAppStore.getState().mapImage
+    const center = image
+      ? { x: image.width / 2, y: image.height / 2 }
       : { x: 0, y: 0 }
     const layerPoint = mapToLayerLocal(mapPoint, center, viewport.rotation)
-    setViewport({
+    previewZoom({
       scale: newScale,
       rotation: viewport.rotation,
       x: pointer.x - layerPoint.x * newScale,
       y: pointer.y - layerPoint.y * newScale,
     })
+    if (wheelCommitRef.current != null) {
+      window.clearTimeout(wheelCommitRef.current)
+    }
+    wheelCommitRef.current = window.setTimeout(() => {
+      wheelCommitRef.current = null
+      commitViewport(viewportRef.current)
+    }, WHEEL_COMMIT_MS)
   }
 
   const eraseAtPointer = (stage: Konva.Stage) => {
@@ -250,12 +351,14 @@ export default function CanvasArea({
 
     if (!isTouch && e.evt.button === 1) {
       e.evt.preventDefault()
+      const viewport = viewportRef.current
       middlePanRef.current = {
         startX: e.evt.clientX,
         startY: e.evt.clientY,
         viewportX: viewport.x,
         viewportY: viewport.y,
       }
+      gestureRef.current = true
       setMiddleMouseHeld(true)
       return
     }
@@ -274,12 +377,12 @@ export default function CanvasArea({
       erasingRef.current = true
       eraseAtPointer(stage)
     } else if (isDrawingTool) {
-      setDraft({
+      draftRef.current = {
         points: [pos.x, pos.y],
         width: strokeWidth,
         color: strokeColor,
         opacity: strokeOpacity,
-      })
+      }
     } else if (activeTool === 'marker') {
       const annotation = {
         id: crypto.randomUUID(),
@@ -302,38 +405,62 @@ export default function CanvasArea({
 
     if (!isTouch && middlePanRef.current) {
       const pan = middlePanRef.current
-      setViewport({
-        scale: viewport.scale,
-        rotation: viewport.rotation,
+      const viewport = viewportRef.current
+      const next = {
+        ...viewport,
         x: pan.viewportX + (e.evt.clientX - pan.startX),
         y: pan.viewportY + (e.evt.clientY - pan.startY),
-      })
+      }
+      gestureRef.current = true
+      viewportRef.current = next
+      stage.position({ x: next.x, y: next.y })
+      stage.batchDraw()
       return
     }
 
     const pos = getMapPointer(stage)
     if (!pos) return
-    setPointer({ x: pos.x, y: pos.y })
+    publishPointer(pos)
 
     if (erasingRef.current && activeTool === 'eraser') {
       eraseAtPointer(stage)
       return
     }
 
-    if (draft) {
-      const pts = draft.points
+    const draftStroke = draftRef.current
+    if (draftStroke) {
+      const pts = draftStroke.points
       const lastX = pts[pts.length - 2]
       const lastY = pts[pts.length - 1]
-      const minDist = (isTouch ? 5 : 3) / viewport.scale
-      if (Math.hypot(pos.x - lastX, pos.y - lastY) >= minDist) {
-        setDraft({ ...draft, points: [...pts, pos.x, pos.y] })
+      const minDist = (isTouch ? 5 : 3) / viewportRef.current.scale
+      if (
+        lastX === undefined ||
+        lastY === undefined ||
+        Math.hypot(pos.x - lastX, pos.y - lastY) >= minDist
+      ) {
+        pts.push(pos.x, pos.y)
+        if (pts.length === 4) {
+          setDraft({ ...draftStroke, points: pts })
+        } else if (pts.length > 4) {
+          if (draftRafRef.current == null) {
+            draftRafRef.current = requestAnimationFrame(() => {
+              draftRafRef.current = null
+              const line = draftLineRef.current
+              const current = draftRef.current
+              if (!line || !current) return
+              line.points(current.points)
+              line.getLayer()?.batchDraw()
+            })
+          }
+        }
       }
     }
   }
 
   const handlePointerUp = (e: KonvaEventObject<PointerEvent>) => {
-    if (!isTouch && e.evt.button === 1) {
+    if (!isTouch && e.evt.button === 1 && middlePanRef.current) {
       middlePanRef.current = null
+      commitViewport(viewportRef.current)
       setMiddleMouseHeld(false)
     }
     commitDraft()
@@ -341,26 +468,38 @@ export default function CanvasArea({
 
   const commitDraft = () => {
     erasingRef.current = false
-    if (!draft) return
+    if (draftRafRef.current != null) {
+      cancelAnimationFrame(draftRafRef.current)
+      draftRafRef.current = null
+    }
+    const stroke = draftRef.current
+    draftRef.current = null
+    if (!stroke) return
     setDraft(null)
-    if (draft.points.length < 4) return
+    if (stroke.points.length < 4) return
     addPath({
       id: crypto.randomUUID(),
-      points: simplifyPath(draft.points, 1.5 / viewport.scale),
-      width: draft.width,
-      color: draft.color,
-      opacity: draft.opacity,
+      points: simplifyPath(stroke.points.slice(), 1.5 / viewportRef.current.scale),
+      width: stroke.width,
+      color: stroke.color,
+      opacity: stroke.opacity,
     })
+  }
+
+  const beginStageDrag = (e: KonvaEventObject<DragEvent>) => {
+    const stage = e.target.getStage()
+    if (!stage || e.target !== stage) return
+    gestureRef.current = true
   }
 
   const syncViewportFromStage = (e: KonvaEventObject<DragEvent>) => {
     const stage = e.target.getStage()
     if (!stage || e.target !== stage) return
-    setViewport({
+    commitViewport({
       scale: stage.scaleX(),
       x: stage.x(),
       y: stage.y(),
-      rotation: viewport.rotation,
+      rotation: viewportRef.current.rotation,
     })
   }
 
@@ -403,27 +542,30 @@ export default function CanvasArea({
           ref={attachStage}
           width={size.width}
           height={size.height}
-          scaleX={viewport.scale}
-          scaleY={viewport.scale}
-          x={viewport.x}
-          y={viewport.y}
           draggable={isPanning}
           onWheel={handleWheel}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerLeave={() => {
-            setPointer(null)
-            middlePanRef.current = null
+            publishPointer(null)
+            if (middlePanRef.current) {
+              middlePanRef.current = null
+              commitViewport(viewportRef.current)
+            }
             setMiddleMouseHeld(false)
             commitDraft()
           }}
-          onDragMove={syncViewportFromStage}
+          onDragStart={beginStageDrag}
           onDragEnd={syncViewportFromStage}
         >
           <MapImageLayer />
           <GpxLayer layoutMode={layoutMode} />
-          <DrawingLayer draft={draft} layoutMode={layoutMode} />
+          <DrawingLayer
+            draft={draft}
+            draftLineRef={draftLineRef}
+            layoutMode={layoutMode}
+          />
           <MarkersLayer layoutMode={layoutMode} />
         </Stage>
       )}

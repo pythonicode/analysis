@@ -7,6 +7,16 @@ export const MAX_COMMENT_BOX_WIDTH = 220
 
 const FONT_FAMILY = 'system-ui, "Segoe UI", Roboto, sans-serif'
 
+let measureCanvas: HTMLCanvasElement | null = null
+let measureContext: CanvasRenderingContext2D | null = null
+
+function getMeasureContext(): CanvasRenderingContext2D | null {
+  if (measureContext) return measureContext
+  measureCanvas = document.createElement('canvas')
+  measureContext = measureCanvas.getContext('2d')
+  return measureContext
+}
+
 export function getCommentBoxWidth(width?: number): number {
   if (width === undefined) return COMMENT_MAX_TEXT_WIDTH
   return clampCommentBoxWidth(width)
@@ -76,8 +86,7 @@ export function measureCommentBox(
   options: MeasureCommentBoxOptions = {},
 ): CommentBoxMetrics {
   const shrinkToContent = options.shrinkToContent ?? true
-  const canvas = document.createElement('canvas')
-  const ctx = canvas.getContext('2d')
+  const ctx = getMeasureContext()
   if (!ctx) {
     const fallbackHeight = fontSize * COMMENT_LINE_HEIGHT + padding * 2
     return {

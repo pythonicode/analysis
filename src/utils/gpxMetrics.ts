@@ -7,6 +7,8 @@ const HR_SMOOTH_WINDOW = 5
 const HR_SCALE_FLOOR = 60
 const HR_SCALE_CEILING = 220
 const HR_MISSING_COLOR = '#9ca3af'
+/** Pace/HR strokes share a color across this many steps so a track is a few runs, not one gradient per vertex. */
+const HEAT_MAP_COLOR_BINS = 24
 
 /** Great-circle distance between two WGS84 points in meters. */
 export function haversineM(
@@ -114,8 +116,16 @@ export function defaultPaceScale(track: GpxTrack): { min: number; max: number } 
   return { min, max }
 }
 
+/** Snap a 0..1 mix onto a small palette so neighboring samples share one color. */
+function quantizeUnitInterval(t: number): number {
+  const clamped = Math.min(1, Math.max(0, t))
+  const steps = HEAT_MAP_COLOR_BINS - 1
+  return Math.round(clamped * steps) / steps
+}
+
 /**
  * Map pace (min/km) onto green (fast) → red (slow). Null pace → gray.
+ * Colors are quantized so a heat-map stroke can be drawn as long same-color runs.
  */
 export function paceToColor(
   paceMinPerKm: number | null,
@@ -131,7 +141,7 @@ export function paceToColor(
       ? 0.5
       : Math.min(1, Math.max(0, (paceMinPerKm - scaleMin) / span))
   // t=0 fast → green (120°); t=1 slow → red (0°)
-  const hue = 120 * (1 - t)
+  const hue = 120 * (1 - quantizeUnitInterval(t))
   return `hsl(${hue} 72% 42%)`
 }
 
@@ -167,6 +177,7 @@ export function defaultHrScale(track: GpxTrack): { min: number; max: number } {
 
 /**
  * Map HR (bpm) onto dark red (low) → bright red (high). Null HR → gray.
+ * Colors are quantized so a heat-map stroke can be drawn as long same-color runs.
  */
 export function hrToColor(
   hrBpm: number | null,
@@ -181,9 +192,10 @@ export function hrToColor(
     span <= 0
       ? 0.5
       : Math.min(1, Math.max(0, (hrBpm - scaleMin) / span))
+  const snapped = quantizeUnitInterval(t)
   // dark red → light bright red
-  const saturation = 75 + t * 20
-  const lightness = 10 + t * 58
+  const saturation = 75 + snapped * 20
+  const lightness = 10 + snapped * 58
   return `hsl(0 ${saturation}% ${lightness}%)`
 }
 

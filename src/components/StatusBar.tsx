@@ -4,6 +4,7 @@ import { getToolLabel } from '../config/tools'
 import type { LegalDocumentId } from '../content/legal'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import { useAppStore } from '../store'
+import { stageRef } from '../stageRef'
 import CanvasRotationControl from './CanvasRotationControl'
 import LegalModal from './LegalModal'
 
@@ -17,7 +18,7 @@ export default function StatusBar({
   layoutMode: LayoutMode
 }) {
   const activeTool = useAppStore((s) => s.activeTool)
-  const viewport = useAppStore((s) => s.viewport)
+  const scale = useAppStore((s) => s.viewport.scale)
   const setViewport = useAppStore((s) => s.setViewport)
   const pointer = useAppStore((s) => s.pointer)
   const [legalDoc, setLegalDoc] = useState<LegalDocumentId | null>(null)
@@ -29,7 +30,9 @@ export default function StatusBar({
   const showCredit = layoutMode === 'desktop'
 
   const zoomBy = (direction: 1 | -1) => {
-    const oldScale = viewport.scale
+    const viewport = useAppStore.getState().viewport
+    const stage = stageRef.current
+    const oldScale = stage ? stage.scaleX() : viewport.scale
     const newScale = Math.min(
       MAX_SCALE,
       Math.max(
@@ -37,13 +40,18 @@ export default function StatusBar({
         direction > 0 ? oldScale * ZOOM_FACTOR : oldScale / ZOOM_FACTOR,
       ),
     )
-    setViewport({ ...viewport, scale: newScale })
+    setViewport({
+      ...viewport,
+      scale: newScale,
+      x: stage ? stage.x() : viewport.x,
+      y: stage ? stage.y() : viewport.y,
+    })
   }
 
   return (
     <footer className="statusbar">
       <span className="statusbar-zoom">
-        Zoom: {Math.round(viewport.scale * 100)}%
+        Zoom: {Math.round(scale * 100)}%
       </span>
       {showRotation && <CanvasRotationControl compact={layoutMode === 'compact'} />}
       {showZoomButtons && (

@@ -1,5 +1,9 @@
 import { create } from 'zustand'
-import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware'
+import {
+  persist,
+  type PersistStorage,
+  type StorageValue,
+} from 'zustand/middleware'
 import { del, get, set as idbSet } from 'idb-keyval'
 import { AnalyticsEvents, trackEvent } from './analytics'
 import type {
@@ -28,15 +32,87 @@ export interface ProjectData extends Snapshot {
   rotation?: number
 }
 
-/** IndexedDB-backed storage; localStorage is too small for embedded map images. */
-const idbStorage: StateStorage = {
-  getItem: async (name) => (await get<string>(name)) ?? null,
-  setItem: async (name, value) => {
-    await idbSet(name, value)
-  },
-  removeItem: async (name) => {
-    await del(name)
-  },
+/** Fields written to IndexedDB. Pointer and pan/zoom are intentionally absent. */
+interface PersistedProject {
+  mapImage: MapImage | null
+  tracks: GpxTrack[]
+  paths: DrawnPath[]
+  annotations: Annotation[]
+  strokeWidth: number
+  strokeColor: string
+  strokeOpacity: number
+  markerDisplayMode: MarkerDisplayMode
+  rotation: number
+}
+
+const PERSIST_DEBOUNCE_MS = 400
+
+function samePersisted(a: PersistedProject, b: PersistedProject): boolean {
+  return (
+    a.mapImage === b.mapImage &&
+    a.tracks === b.tracks &&
+    a.paths === b.paths &&
+    a.annotations === b.annotations &&
+    a.strokeWidth === b.strokeWidth &&
+    a.strokeColor === b.strokeColor &&
+    a.strokeOpacity === b.strokeOpacity &&
+    a.markerDisplayMode === b.markerDisplayMode &&
+    a.rotation === b.rotation
+  )
+}
+
+/**
+ * IndexedDB storage that skips pointer/viewport churn and collapses bursts of
+ * real edits (typing, sliders) into one write. The on-disk shape stays
+ * `{ state, version }` JSON so existing projects still load.
+ */
+function createProjectStorage(): PersistStorage<PersistedProject> {
+  let last: PersistedProject | null = null
+  let timer: ReturnType<typeof setTimeout> | null = null
+  let pending: { name: string; value: StorageValue<PersistedProject> } | null =
+    null
+
+  const flush = () => {
+    if (timer !== null) {
+      clearTimeout(timer)
+      timer = null
+    }
+    const job = pending
+    pending = null
+    if (!job) return
+    void idbSet(job.name, JSON.stringify(job.value))
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', flush)
+  }
+
+  return {
+    getItem: async (name) => {
+      const raw = await get<string>(name)
+      if (!raw) return null
+      const parsed = JSON.parse(raw) as StorageValue<PersistedProject>
+      last = parsed.state
+      return parsed
+    },
+    setItem: (name, value) => {
+      const next = value.state
+      if (last && samePersisted(last, next)) return
+      last = next
+      pending = { name, value }
+      if (timer !== null) clearTimeout(timer)
+      timer = setTimeout(flush, PERSIST_DEBOUNCE_MS)
+    },
+    removeItem: async (name) => {
+      last = null
+      pending = null
+      if (timer !== null) {
+        clearTimeout(timer)
+        timer = null
+      }
+      await del(name)
+    },
+  }
 }
 
 const HISTORY_LIMIT = 100
@@ -287,7 +363,7 @@ export const useAppStore = create<AppState>()(
     {
       name: 'map-analysis',
       version: 1,
-      storage: createJSONStorage(() => idbStorage),
+      storage: createProjectStorage(),
       partialize: (s) => ({
         mapImage: s.mapImage,
         tracks: s.tracks,

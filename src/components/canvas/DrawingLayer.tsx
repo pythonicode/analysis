@@ -1,4 +1,6 @@
+import { memo, type RefObject } from 'react'
 import { Layer, Line } from 'react-konva'
+import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import { useAppStore } from '../../store'
 import type { DrawnPath } from '../../types'
@@ -16,11 +18,13 @@ export interface DraftStroke {
 const STROKE_TENSION = 0.5
 const TOUCH_DRAG_THRESHOLD = 8
 
-export default function DrawingLayer({
+function DrawingLayer({
   draft,
+  draftLineRef,
   layoutMode,
 }: {
   draft: DraftStroke | null
+  draftLineRef: RefObject<Konva.Line | null>
   layoutMode: LayoutMode
 }) {
   const paths = useAppStore((s) => s.paths)
@@ -83,6 +87,7 @@ export default function DrawingLayer({
 
       {draft && draft.points.length >= 4 && (
         <Line
+          ref={draftLineRef}
           points={draft.points}
           stroke={draft.color}
           strokeWidth={draft.width}
@@ -97,3 +102,5 @@ export default function DrawingLayer({
     </Layer>
   )
 }
+
+export default memo(DrawingLayer)

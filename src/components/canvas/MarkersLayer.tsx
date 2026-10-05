@@ -1,6 +1,6 @@
 import { Circle, Group, Layer, Rect, Text } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
-import { useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppStore } from '../../store'
 import { areExportMarkersSuppressed } from '../../utils/export'
 import { stageRef } from '../../stageRef'
@@ -126,8 +126,10 @@ function CommentBox({
   layoutMode: LayoutMode
   onResizePointerDown: (e: KonvaEventObject<PointerEvent>) => void
 }) {
-  const { width, height, lineText, textWidth, isPlaceholder } =
-    measureForAnnotation(annotation, previewTextWidth)
+  const { width, height, lineText, textWidth, isPlaceholder } = useMemo(
+    () => measureForAnnotation(annotation, previewTextWidth),
+    [annotation, previewTextWidth],
+  )
   const gripWidth = Math.max(10 / viewportScale, 6)
   const label = markerLabel(index)
   const isTouch = layoutMode === 'touch'
@@ -202,7 +204,103 @@ function CommentBox({
   )
 }
 
-export default function MarkersLayer({
+const MarkerNode = memo(function MarkerNode({
+  annotation,
+  index,
+  selected,
+  selectable,
+  showComments,
+  previewTextWidth,
+  viewportScale,
+  layoutMode,
+  hitMultiplier,
+  isResizing,
+  onResizePointerDown,
+}: {
+  annotation: Annotation
+  index: number
+  selected: boolean
+  selectable: boolean
+  showComments: boolean
+  previewTextWidth?: number
+  viewportScale: number
+  layoutMode: LayoutMode
+  hitMultiplier: number
+  isResizing: boolean
+  onResizePointerDown: (
+    e: KonvaEventObject<PointerEvent>,
+    annotation: Annotation,
+  ) => void
+}) {
+  const setSelectedId = useAppStore((s) => s.setSelectedId)
+  const updateAnnotation = useAppStore((s) => s.updateAnnotation)
+  const radius = annotation.size
+  const label = markerLabel(index)
+  const markerShadow = canUseShadow(radius * 2, viewportScale)
+  const isTouch = layoutMode === 'touch'
+
+  return (
+    <Group
+      id={annotation.id}
+      x={annotation.position.x}
+      y={annotation.position.y}
+      draggable={selectable && !isResizing}
+      dragDistance={isTouch ? TOUCH_DRAG_THRESHOLD : 0}
+      onClick={() => selectable && setSelectedId(annotation.id)}
+      onTap={() => selectable && setSelectedId(annotation.id)}
+      onDragStart={() => setSelectedId(annotation.id)}
+      onDragEnd={(e) => {
+        if (isResizing) return
+        updateAnnotation(annotation.id, {
+          position: { x: e.target.x(), y: e.target.y() },
+        })
+      }}
+    >
+      {showComments ? (
+        <CommentBox
+          annotation={annotation}
+          index={index}
+          selected={selectable && selected}
+          previewTextWidth={previewTextWidth}
+          viewportScale={viewportScale}
+          layoutMode={layoutMode}
+          onResizePointerDown={(e) => onResizePointerDown(e, annotation)}
+        />
+      ) : (
+        <Circle
+          radius={radius}
+          fill={annotation.color}
+          stroke={selected ? '#08060d' : '#ffffff'}
+          strokeWidth={radius * (selected ? 0.25 : 0.15)}
+          hitStrokeWidth={Math.max(radius * hitMultiplier, 10)}
+          shadowColor={markerShadow ? '#000000' : undefined}
+          shadowBlur={markerShadow ? radius * 0.4 : 0}
+          shadowOpacity={markerShadow ? 0.3 : 0}
+        />
+      )}
+      {!showComments && (
+        <Text
+          text={label}
+          fill="#ffffff"
+          fontStyle="bold"
+          fontSize={
+            radius *
+            (label.length === 1 ? 1.2 : label.length === 2 ? 0.85 : 0.6)
+          }
+          width={radius * 2}
+          height={radius * 2}
+          offsetX={radius}
+          offsetY={radius}
+          align="center"
+          verticalAlign="middle"
+          listening={false}
+        />
+      )}
+    </Group>
+  )
+})
+
+function MarkersLayer({
   layoutMode,
 }: {
   layoutMode: LayoutMode
@@ -212,7 +310,6 @@ export default function MarkersLayer({
   const selectedId = useAppStore((s) => s.selectedId)
   const markerDisplayMode = useAppStore((s) => s.markerDisplayMode)
   const viewportScale = useAppStore((s) => s.viewport.scale)
-  const setSelectedId = useAppStore((s) => s.setSelectedId)
   const updateAnnotation = useAppStore((s) => s.updateAnnotation)
 
   const selectable = activeTool === 'select'
@@ -267,36 +364,29 @@ export default function MarkersLayer({
     }
   }, [annotations, resizingId, updateAnnotation])
 
-  const beginResize = (
-    e: KonvaEventObject<PointerEvent>,
-    annotation: Annotation,
-  ) => {
-    e.cancelBubble = true
-    e.evt.preventDefault()
+  const beginResize = useCallback(
+    (e: KonvaEventObject<PointerEvent>, annotation: Annotation) => {
+      e.cancelBubble = true
+      e.evt.preventDefault()
 
-    const stage = stageRef.current
-    let startWidth = resolveTextWidth(annotation)
-    if (stage) {
-      stage.setPointersPositions(e.evt)
-      const pos = getMapPointer(stage)
-      if (pos) {
-        startWidth = textWidthFromRightEdge(pos.x - annotation.position.x)
+      const stage = stageRef.current
+      let startWidth = resolveTextWidth(annotation)
+      if (stage) {
+        stage.setPointersPositions(e.evt)
+        const pos = getMapPointer(stage)
+        if (pos) {
+          startWidth = textWidthFromRightEdge(pos.x - annotation.position.x)
+        }
       }
-    }
 
-    setPreviewWidths((current) => ({
-      ...current,
-      [annotation.id]: startWidth,
-    }))
-    setResizingId(annotation.id)
-  }
-
-  const commitDrag = (id: string, e: KonvaEventObject<DragEvent>) => {
-    if (resizingId === id) return
-    updateAnnotation(id, {
-      position: { x: e.target.x(), y: e.target.y() },
-    })
-  }
+      setPreviewWidths((current) => ({
+        ...current,
+        [annotation.id]: startWidth,
+      }))
+      setResizingId(annotation.id)
+    },
+    [],
+  )
 
   if (areExportMarkersSuppressed()) {
     return <Layer />
@@ -305,71 +395,25 @@ export default function MarkersLayer({
   return (
     <Layer>
       <MapRotationGroup>
-        {annotations.map((annotation, index) => {
-        const selected = selectedId === annotation.id
-        const radius = annotation.size
-        const label = markerLabel(index)
-        const previewTextWidth = previewWidths[annotation.id]
-        const isResizing = resizingId === annotation.id
-        const markerShadow = canUseShadow(radius * 2, viewportScale)
-
-        return (
-          <Group
+        {annotations.map((annotation, index) => (
+          <MarkerNode
             key={annotation.id}
-            id={annotation.id}
-            x={annotation.position.x}
-            y={annotation.position.y}
-            draggable={selectable && !isResizing}
-            dragDistance={isTouch ? TOUCH_DRAG_THRESHOLD : 0}
-            onClick={() => selectable && setSelectedId(annotation.id)}
-            onTap={() => selectable && setSelectedId(annotation.id)}
-            onDragStart={() => setSelectedId(annotation.id)}
-            onDragEnd={(e) => commitDrag(annotation.id, e)}
-          >
-            {showComments ? (
-              <CommentBox
-                annotation={annotation}
-                index={index}
-                selected={selectable && selected}
-                previewTextWidth={previewTextWidth}
-                viewportScale={viewportScale}
-                layoutMode={layoutMode}
-                onResizePointerDown={(e) => beginResize(e, annotation)}
-              />
-            ) : (
-              <Circle
-                radius={radius}
-                fill={annotation.color}
-                stroke={selected ? '#08060d' : '#ffffff'}
-                strokeWidth={radius * (selected ? 0.25 : 0.15)}
-                hitStrokeWidth={Math.max(radius * hitMultiplier, 10)}
-                shadowColor={markerShadow ? '#000000' : undefined}
-                shadowBlur={markerShadow ? radius * 0.4 : 0}
-                shadowOpacity={markerShadow ? 0.3 : 0}
-              />
-            )}
-            {!showComments && (
-              <Text
-                text={label}
-                fill="#ffffff"
-                fontStyle="bold"
-                fontSize={
-                  radius *
-                  (label.length === 1 ? 1.2 : label.length === 2 ? 0.85 : 0.6)
-                }
-                width={radius * 2}
-                height={radius * 2}
-                offsetX={radius}
-                offsetY={radius}
-                align="center"
-                verticalAlign="middle"
-                listening={false}
-              />
-            )}
-          </Group>
-        )
-      })}
+            annotation={annotation}
+            index={index}
+            selected={selectedId === annotation.id}
+            selectable={selectable}
+            showComments={showComments}
+            previewTextWidth={previewWidths[annotation.id]}
+            viewportScale={viewportScale}
+            layoutMode={layoutMode}
+            hitMultiplier={hitMultiplier}
+            isResizing={resizingId === annotation.id}
+            onResizePointerDown={beginResize}
+          />
+        ))}
       </MapRotationGroup>
     </Layer>
   )
 }
+
+export default memo(MarkersLayer)
