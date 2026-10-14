@@ -14,10 +14,17 @@ import {
   type ExportPreviewImages,
 } from '../utils/export'
 import type { LayoutMode } from '../hooks/useLayoutMode'
+import { useEscapeKey } from '../hooks/useEscapeKey'
 
 const PREVIEW_ZOOM_MIN = 1
 const PREVIEW_ZOOM_MAX = 4
 const PREVIEW_ZOOM_STEP = 0.25
+
+function exportFailureMessage(error: unknown): string {
+  return error instanceof Error
+    ? error.message
+    : 'Export failed — please try again'
+}
 
 export default function ExportModal({
   layoutMode,
@@ -39,6 +46,7 @@ export default function ExportModal({
   const [previews, setPreviews] = useState<ExportPreviewImages | null>(null)
   const [previewLoading, setPreviewLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
   const [previewZoom, setPreviewZoom] = useState(1)
   const [previewPan, setPreviewPan] = useState({ x: 0, y: 0 })
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 })
@@ -59,6 +67,10 @@ export default function ExportModal({
     try {
       const next = await renderExportPreviews({ includeSidebar, textScale })
       setPreviews(next)
+      setExportError(null)
+    } catch (error) {
+      setPreviews(null)
+      setExportError(exportFailureMessage(error))
     } finally {
       setPreviewLoading(false)
     }
@@ -88,13 +100,7 @@ export default function ExportModal({
     return () => observer.disconnect()
   }, [])
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+  useEscapeKey(onClose)
 
   /** Full-resolution bitmap when zoomed past fit; thumbnail otherwise. */
   const useFullRes = previewZoom > 1
@@ -206,9 +212,12 @@ export default function ExportModal({
 
   const handleExport = async () => {
     setExporting(true)
+    setExportError(null)
     try {
       await downloadExport({ includeSidebar, textScale })
       onClose()
+    } catch (error) {
+      setExportError(exportFailureMessage(error))
     } finally {
       setExporting(false)
     }
@@ -374,6 +383,18 @@ export default function ExportModal({
             </div>
           )}
         </div>
+
+        {exportError && (
+          <p className="export-status export-status-error" role="alert">
+            {exportError}
+          </p>
+        )}
+        {!exportError && previews && previews.scale < 1 && (
+          <p className="export-status" role="status">
+            This map is larger than this device can export at full size, so the
+            PNG will be {Math.round(previews.scale * 100)}% of native resolution.
+          </p>
+        )}
 
         <div className={`modal-actions${isTouch ? ' modal-actions-touch' : ''}`}>
           <button type="button" className="button" onClick={onClose}>

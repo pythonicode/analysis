@@ -1,35 +1,35 @@
-import { useEffect } from 'react'
 import { Save, X } from 'lucide-react'
 import { saveProjectFile, PROJECT_FILE_EXTENSION } from '../utils/project'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import Tooltip from './Tooltip'
+import { useEscapeKey } from '../hooks/useEscapeKey'
 
-export default function NewProjectModal({
+/** Confirms before the current project is replaced by a new or opened one. */
+export default function ReplaceProjectModal({
   layoutMode,
+  title,
+  description,
+  confirmLabel,
   canSave,
-  canExport,
   onConfirm,
   onClose,
   onExport,
 }: {
   layoutMode: LayoutMode
+  title: string
+  description: string
+  confirmLabel: string
   canSave: boolean
-  canExport: boolean
   onConfirm: () => void
   onClose: () => void
-  onExport: () => void
+  /** Omit to hide the Export shortcut */
+  onExport?: () => void
 }) {
   const isTouch = layoutMode === 'touch'
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+  useEscapeKey(onClose)
 
-  const startNew = () => {
+  const confirm = () => {
     onConfirm()
     onClose()
   }
@@ -46,13 +46,8 @@ export default function NewProjectModal({
     </button>
   )
 
-  const exportButton = (
-    <button
-      type="button"
-      className="button"
-      disabled={!canExport}
-      onClick={onExport}
-    >
+  const exportButton = onExport && (
+    <button type="button" className="button" onClick={onExport}>
       Export
     </button>
   )
@@ -63,11 +58,11 @@ export default function NewProjectModal({
         className="modal"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="new-project-modal-title"
+        aria-labelledby="replace-project-modal-title"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
-          <h2 id="new-project-modal-title">Start a new project?</h2>
+          <h2 id="replace-project-modal-title">{title}</h2>
           <button
             type="button"
             className="modal-close"
@@ -78,10 +73,7 @@ export default function NewProjectModal({
           </button>
         </div>
 
-        <p className="modal-body">
-          Your current work will be cleared when you start a new project. Save or
-          export it first if you want to keep a copy.
-        </p>
+        <p className="modal-body">{description}</p>
 
         <div
           className={`modal-actions${isTouch ? ' modal-actions-touch' : ' modal-actions-split'}`}
@@ -103,15 +95,11 @@ export default function NewProjectModal({
                 >
                   {saveButton}
                 </Tooltip>
-                <Tooltip
-                  content={
-                    canExport
-                      ? 'Download annotated map'
-                      : 'Import a map image first'
-                  }
-                >
-                  {exportButton}
-                </Tooltip>
+                {exportButton && (
+                  <Tooltip content="Download annotated map">
+                    {exportButton}
+                  </Tooltip>
+                )}
               </>
             )}
           </div>
@@ -122,9 +110,9 @@ export default function NewProjectModal({
             <button
               type="button"
               className="button button-primary"
-              onClick={startNew}
+              onClick={confirm}
             >
-              Start new
+              {confirmLabel}
             </button>
           </div>
         </div>

@@ -12,6 +12,7 @@ import type {
   GpxTrack,
   MapImage,
   MarkerDisplayMode,
+  PendingProjectOpen,
   Point,
   Tool,
   Viewport,
@@ -21,9 +22,11 @@ import {
   clampAnnotationTextScalePct,
 } from './utils/annotationTextScale'
 import { clampViewport, DEFAULT_VIEWPORT } from './utils/viewport'
+import { hasUnsavedEdits, setSaveState } from './saveStatus'
 
-/** The undoable part of the state: the analysis content itself. */
+/** The undoable part of the state: the analysis content and the map it sits on. */
 interface Snapshot {
+  mapImage: MapImage | null
   paths: DrawnPath[]
   tracks: GpxTrack[]
   annotations: Annotation[]
@@ -31,7 +34,6 @@ interface Snapshot {
 
 /** Loadable project content: what Save/Open and persistence care about. */
 export interface ProjectData extends Snapshot {
-  mapImage: MapImage | null
   /** Clockwise canvas rotation in whole degrees; omitted in older projects */
   rotation?: number
 }
@@ -67,16 +69,61 @@ function samePersisted(a: PersistedProject, b: PersistedProject): boolean {
   )
 }
 
+/** IndexedDB key suffix for the map image, stored as a Blob beside the project JSON */
+const IMAGE_KEY_SUFFIX = ':image'
+
+async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
+  const response = await fetch(dataUrl)
+  return response.blob()
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(blob)
+  })
+}
+
 /**
  * IndexedDB storage that skips pointer/viewport churn and collapses bursts of
- * real edits (typing, sliders) into one write. The on-disk shape stays
- * `{ state, version }` JSON so existing projects still load.
+ * real edits (typing, sliders) into one write.
+ *
+ * The map image is written as a Blob only when it changes, and the project
+ * JSON keeps a placeholder (`src: ''`) instead of the base64 data URL. That
+ * keeps every autosave from re-encoding tens of megabytes. Projects saved by
+ * older builds still carry the image inline and are migrated on their next save.
  */
 function createProjectStorage(): PersistStorage<PersistedProject> {
   let last: PersistedProject | null = null
+  /** The map image object currently written to IndexedDB, by reference */
+  let storedImage: MapImage | null = null
   let timer: ReturnType<typeof setTimeout> | null = null
   let pending: { name: string; value: StorageValue<PersistedProject> } | null =
     null
+  /** Serializes writes so a slow image write cannot land after a newer project write */
+  let writes: Promise<void> = Promise.resolve()
+
+  const persist = async (name: string, value: StorageValue<PersistedProject>) => {
+    const image = value.state.mapImage
+    if (image !== storedImage) {
+      if (image) {
+        await idbSet(name + IMAGE_KEY_SUFFIX, await dataUrlToBlob(image.src))
+      } else {
+        await del(name + IMAGE_KEY_SUFFIX)
+      }
+      storedImage = image
+    }
+    const withPlaceholder: StorageValue<PersistedProject> = {
+      ...value,
+      state: {
+        ...value.state,
+        mapImage: image ? { ...image, src: '' } : null,
+      },
+    }
+    await idbSet(name, JSON.stringify(withPlaceholder))
+  }
 
   const flush = () => {
     if (timer !== null) {
@@ -86,11 +133,30 @@ function createProjectStorage(): PersistStorage<PersistedProject> {
     const job = pending
     pending = null
     if (!job) return
-    void idbSet(job.name, JSON.stringify(job.value))
+    setSaveState({ status: 'saving', savedAt: null })
+    writes = writes
+      .then(() => persist(job.name, job.value))
+      .then(() => {
+        // A newer edit may have arrived while this write was in flight
+        if (!pending) setSaveState({ status: 'saved', savedAt: Date.now() })
+      })
+      .catch((error: unknown) => {
+        console.error('Autosave failed', error)
+        setSaveState({ status: 'error', savedAt: null })
+      })
   }
 
   if (typeof window !== 'undefined') {
     window.addEventListener('pagehide', flush)
+    // Warn only when an edit would be lost; a normal save in progress needs no prompt
+    window.addEventListener('beforeunload', (event) => {
+      const unsaved = hasUnsavedEdits()
+      flush()
+      if (unsaved) {
+        event.preventDefault()
+        event.returnValue = ''
+      }
+    })
   }
 
   return {
@@ -98,7 +164,18 @@ function createProjectStorage(): PersistStorage<PersistedProject> {
       const raw = await get<string>(name)
       if (!raw) return null
       const parsed = JSON.parse(raw) as StorageValue<PersistedProject>
-      last = parsed.state
+      const state = parsed.state
+      if (state.mapImage && !state.mapImage.src) {
+        const blob = await get<Blob>(name + IMAGE_KEY_SUFFIX)
+        state.mapImage = blob
+          ? { ...state.mapImage, src: await blobToDataUrl(blob) }
+          : null
+        storedImage = state.mapImage
+      } else {
+        // Legacy save with the image inline: force a migration on the next write
+        storedImage = null
+      }
+      last = state
       return parsed
     },
     setItem: (name, value) => {
@@ -106,17 +183,21 @@ function createProjectStorage(): PersistStorage<PersistedProject> {
       if (last && samePersisted(last, next)) return
       last = next
       pending = { name, value }
+      setSaveState({ status: 'pending', savedAt: null })
       if (timer !== null) clearTimeout(timer)
       timer = setTimeout(flush, PERSIST_DEBOUNCE_MS)
     },
     removeItem: async (name) => {
       last = null
+      storedImage = null
       pending = null
       if (timer !== null) {
         clearTimeout(timer)
         timer = null
       }
+      await writes
       await del(name)
+      await del(name + IMAGE_KEY_SUFFIX)
     },
   }
 }
@@ -137,6 +218,8 @@ interface AppState extends Snapshot {
   markerDisplayMode: MarkerDisplayMode
   annotationTextScalePct: number
   toastMessage: string | null
+  /** Project open awaiting confirmation because it would replace current work */
+  pendingProjectOpen: PendingProjectOpen | null
 
   past: Snapshot[]
   future: Snapshot[]
@@ -158,6 +241,7 @@ interface AppState extends Snapshot {
   setMarkerDisplayMode: (mode: MarkerDisplayMode) => void
   setAnnotationTextScalePct: (percent: number) => void
   setToastMessage: (message: string | null) => void
+  setPendingProjectOpen: (pending: PendingProjectOpen | null) => void
 
   addTrack: (track: GpxTrack) => void
   /** Pass a coalesceKey to merge rapid consecutive edits (e.g. slider drags) into one undo step */
@@ -187,7 +271,12 @@ interface AppState extends Snapshot {
 }
 
 function takeSnapshot(s: Snapshot): Snapshot {
-  return { paths: s.paths, tracks: s.tracks, annotations: s.annotations }
+  return {
+    mapImage: s.mapImage,
+    paths: s.paths,
+    tracks: s.tracks,
+    annotations: s.annotations,
+  }
 }
 
 /**
@@ -241,13 +330,14 @@ export const useAppStore = create<AppState>()(
   markerDisplayMode: 'labels',
   annotationTextScalePct: ANNOTATION_TEXT_SCALE_DEFAULT,
   toastMessage: null,
+  pendingProjectOpen: null,
 
   past: [],
   future: [],
   lastCoalesceKey: null,
 
   setActiveTool: (tool) => set({ activeTool: tool }),
-  setMapImage: (image) => set({ mapImage: image }),
+  setMapImage: (image) => set((s) => ({ ...record(s, null), mapImage: image })),
   setStrokeWidth: (width) => set({ strokeWidth: width }),
   setStrokeColor: (color) => set({ strokeColor: color }),
   setStrokeOpacity: (opacity) => set({ strokeOpacity: opacity }),
@@ -263,6 +353,7 @@ export const useAppStore = create<AppState>()(
   setAnnotationTextScalePct: (percent) =>
     set({ annotationTextScalePct: clampAnnotationTextScalePct(percent) }),
   setToastMessage: (message) => set({ toastMessage: message }),
+  setPendingProjectOpen: (pending) => set({ pendingProjectOpen: pending }),
 
   addTrack: (track) =>
     set((s) => ({ ...record(s, null), tracks: [...s.tracks, track] })),

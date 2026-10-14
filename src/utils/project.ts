@@ -1,16 +1,12 @@
 import { useAppStore, type ProjectData } from '../store'
 import { AnalyticsEvents, trackEvent } from '../analytics'
+import type { PendingProjectOpen } from '../types'
 
-const PROJECT_FORMAT = 'map-analysis'
-const PROJECT_VERSION = 1
+import { PROJECT_FORMAT, PROJECT_VERSION, validateProjectFile, type ProjectFile } from './projectValidation'
+
 export const PROJECT_FILE_EXTENSION = '.anal'
 
-interface ProjectFile extends ProjectData {
-  format: typeof PROJECT_FORMAT
-  version: typeof PROJECT_VERSION
-}
-
-function hasProjectContent(data: ProjectData): boolean {
+export function hasProjectContent(data: ProjectData): boolean {
   return (
     data.mapImage !== null ||
     data.tracks.length > 0 ||
@@ -19,33 +15,29 @@ function hasProjectContent(data: ProjectData): boolean {
   )
 }
 
-function validateProjectFile(raw: unknown): ProjectFile {
-  if (typeof raw !== 'object' || raw === null) {
-    throw new Error('Project file is not valid JSON')
-  }
+/** True when opening a project would discard content that is currently on screen. */
+export function currentProjectHasContent(): boolean {
+  const { mapImage, tracks, paths, annotations } = useAppStore.getState()
+  return hasProjectContent({ mapImage, tracks, paths, annotations })
+}
 
-  const data = raw as Record<string, unknown>
+/**
+ * Entry point for every project open (picker, drop, sample). Opens right away
+ * when there is nothing to lose; otherwise parks the request until the user
+ * confirms in ReplaceProjectModal.
+ */
+export function requestOpenProject(request: PendingProjectOpen): Promise<void> {
+  if (currentProjectHasContent()) {
+    useAppStore.getState().setPendingProjectOpen(request)
+    return Promise.resolve()
+  }
+  return runProjectOpen(request)
+}
 
-  if (data.format !== PROJECT_FORMAT) {
-    throw new Error('Not an O-Analysis project file')
-  }
-  if (data.version !== PROJECT_VERSION) {
-    throw new Error(`Unsupported project version: ${String(data.version)}`)
-  }
-  if (data.mapImage !== null && typeof data.mapImage !== 'object') {
-    throw new Error('Invalid map image in project file')
-  }
-  if (!Array.isArray(data.tracks)) {
-    throw new Error('Invalid GPX tracks in project file')
-  }
-  if (!Array.isArray(data.paths)) {
-    throw new Error('Invalid drawings in project file')
-  }
-  if (!Array.isArray(data.annotations)) {
-    throw new Error('Invalid annotations in project file')
-  }
-
-  return data as unknown as ProjectFile
+/** Performs a project open that has already been confirmed (or needs no confirmation). */
+export function runProjectOpen(request: PendingProjectOpen): Promise<void> {
+  if (request.kind === 'sample') return openSampleProject()
+  return openProjectFile(request.file, request.source)
 }
 
 export function isProjectFile(file: File): boolean {

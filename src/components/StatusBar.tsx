@@ -4,18 +4,46 @@ import { getToolLabel } from '../config/tools'
 import type { LegalDocumentId } from '../content/legal'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import { useAppStore } from '../store'
+import type { SaveStatus } from '../saveStatus'
 import {
   ANNOTATION_TEXT_SCALE_MAX,
   ANNOTATION_TEXT_SCALE_MIN,
   ANNOTATION_TEXT_SCALE_STEP,
 } from '../utils/annotationTextScale'
 import { stageRef } from '../stageRef'
+import { useSaveState } from '../saveStatus'
 import CanvasRotationControl from './CanvasRotationControl'
 import LegalModal from './LegalModal'
 
 const MIN_SCALE = 0.05
 const MAX_SCALE = 8
 const ZOOM_FACTOR = 1.15
+
+function SaveIndicator({
+  state,
+}: {
+  state: { status: SaveStatus; savedAt: number | null }
+}) {
+  if (state.status === 'idle') return null
+  const label =
+    state.status === 'error'
+      ? 'Autosave failed'
+      : state.status === 'saved' && state.savedAt
+        ? `Saved ${new Date(state.savedAt).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          })}`
+        : 'Saving…'
+  return (
+    <span
+      className={`statusbar-save${state.status === 'error' ? ' statusbar-save-error' : ''}`}
+      role="status"
+      aria-live="polite"
+    >
+      {label}
+    </span>
+  )
+}
 
 export default function StatusBar({
   layoutMode,
@@ -30,6 +58,7 @@ export default function StatusBar({
   const setAnnotationTextScalePct = useAppStore(
     (s) => s.setAnnotationTextScalePct,
   )
+  const saveState = useSaveState()
   const [legalDoc, setLegalDoc] = useState<LegalDocumentId | null>(null)
 
   const showCoords = layoutMode === 'desktop'
@@ -109,6 +138,7 @@ export default function StatusBar({
         </span>
       )}
       <span className="statusbar-tool">Tool: {getToolLabel(activeTool)}</span>
+      <SaveIndicator state={saveState} />
       {showLegalLinks && (
         <nav className="statusbar-legal" aria-label="Legal">
           <button

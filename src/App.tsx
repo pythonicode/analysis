@@ -8,13 +8,17 @@ import BottomToolBar from './components/BottomToolBar'
 import TouchHints from './components/TouchHints'
 import ToastBanner from './components/ToastBanner'
 import PwaUpdateBanner from './components/PwaUpdateBanner'
+import ReplaceProjectModal from './components/ReplaceProjectModal'
 import { useLayoutMode } from './hooks/useLayoutMode'
 import { useEffect, useRef } from 'react'
 import { useAppStore } from './store'
+import { currentProjectHasContent, runProjectOpen } from './utils/project'
 
 function App() {
   const layoutMode = useLayoutMode()
   const setActiveTool = useAppStore((s) => s.setActiveTool)
+  const pendingProjectOpen = useAppStore((s) => s.pendingProjectOpen)
+  const setPendingProjectOpen = useAppStore((s) => s.setPendingProjectOpen)
   const prevLayoutRef = useRef(layoutMode)
 
   useEffect(() => {
@@ -45,6 +49,21 @@ function App() {
       </div>
       {layoutMode === 'touch' && <BottomToolBar />}
       <StatusBar layoutMode={layoutMode} />
+      {pendingProjectOpen && (
+        <ReplaceProjectModal
+          layoutMode={layoutMode}
+          title="Open another project?"
+          description="Opening a project replaces your current work. Save it first if you want to keep a copy."
+          confirmLabel="Open project"
+          canSave={currentProjectHasContent()}
+          onConfirm={() => {
+            const request = pendingProjectOpen
+            setPendingProjectOpen(null)
+            void runProjectOpen(request)
+          }}
+          onClose={() => setPendingProjectOpen(null)}
+        />
+      )}
     </div>
   )
 }

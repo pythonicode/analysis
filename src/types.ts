@@ -80,3 +80,8 @@ export interface MapImage {
   height: number
   name: string
 }
+
+/** A project open that is waiting on confirmation because it would replace current work */
+export type PendingProjectOpen =
+  | { kind: 'file'; file: File; source: 'file_picker' | 'drop' }
+  | { kind: 'sample' }

@@ -15,15 +15,16 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '../store'
 import { importGpxFile, importImageFile } from '../utils/files'
-import { openProjectFile, saveProjectFile, PROJECT_FILE_EXTENSION } from '../utils/project'
+import { requestOpenProject, saveProjectFile, PROJECT_FILE_EXTENSION } from '../utils/project'
 import { usePwaInstall } from '../hooks/usePwaInstall'
 import { usePwaUpdate } from '../hooks/usePwaUpdate'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import EditGpxModal from './EditGpxModal'
 import ExportModal from './ExportModal'
-import NewProjectModal from './NewProjectModal'
+import ReplaceProjectModal from './ReplaceProjectModal'
 import Tooltip from './Tooltip'
-import TopBarMenu, { buildOverflowActions } from './TopBarMenu'
+import TopBarMenu from './TopBarMenu'
+import { buildOverflowActions } from './overflowActions'
 
 export default function TopBar({
   layoutMode,
@@ -145,7 +146,7 @@ export default function TopBar({
           hidden
           onChange={(e) => {
             const file = e.target.files?.[0]
-            if (file) void openProjectFile(file)
+            if (file) void requestOpenProject({ kind: 'file', file, source: 'file_picker' })
             e.target.value = ''
           }}
         />
@@ -314,16 +315,22 @@ export default function TopBar({
       )}
 
       {newProjectModalOpen && (
-        <NewProjectModal
+        <ReplaceProjectModal
           layoutMode={layoutMode}
+          title="Start a new project?"
+          description="Your current work will be cleared when you start a new project. Save or export it first if you want to keep a copy."
+          confirmLabel="Start new"
           canSave={canSave}
-          canExport={mapImage !== null}
           onConfirm={newProject}
           onClose={() => setNewProjectModalOpen(false)}
-          onExport={() => {
-            setNewProjectModalOpen(false)
-            setExportModalOpen(true)
-          }}
+          onExport={
+            mapImage !== null
+              ? () => {
+                  setNewProjectModalOpen(false)
+                  setExportModalOpen(true)
+                }
+              : undefined
+          }
         />
       )}
     </header>
