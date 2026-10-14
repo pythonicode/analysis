@@ -144,14 +144,39 @@ export default function CanvasArea({
     activeTool === 'pan' ||
     (!isTouch && (spaceHeld || middleMouseHeld))
 
+  const isPanningRef = useRef(isPanning)
+  isPanningRef.current = isPanning
+
+  // Pinch starts from what is on screen, which can differ from the stored viewport mid-drag
+  const readStageViewport = useCallback((): Viewport => {
+    const stage = stageRef.current
+    const base = viewportRef.current
+    if (!stage) return base
+    return { scale: stage.scaleX(), x: stage.x(), y: stage.y(), rotation: base.rotation }
+  }, [])
+
+  // A one-finger pan (Konva stage drag) must not run alongside a pinch
+  const pinchStart = useCallback(() => {
+    const stage = stageRef.current
+    if (!stage) return
+    stage.stopDrag()
+    stage.draggable(false)
+  }, [])
+
+  const pinchEnd = useCallback(() => {
+    stageRef.current?.draggable(isPanningRef.current)
+  }, [])
+
   usePinchZoom(
     containerRef,
     isTouch,
-    () => viewportRef.current,
+    readStageViewport,
     previewZoom,
     commitViewport,
     MIN_SCALE,
     MAX_SCALE,
+    pinchStart,
+    pinchEnd,
   )
 
   useEffect(() => {

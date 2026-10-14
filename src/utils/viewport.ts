@@ -130,3 +130,29 @@ export const DEFAULT_VIEWPORT: Viewport = {
 export function canUseShadow(mapSize: number, viewportScale: number): boolean {
   return mapSize * viewportScale >= MIN_SHADOW_SCREEN_PX
 }
+
+/**
+ * Viewport after one pinch step. The stage point that was under the previous
+ * finger centre stays under the new centre, so zooming and panning happen
+ * together. Rotation is part of the stage content, so it is unchanged here.
+ */
+export function pinchViewport(
+  viewport: Viewport,
+  previousCenter: Point,
+  center: Point,
+  scaleFactor: number,
+  minScale: number,
+  maxScale: number,
+): Viewport {
+  const scale = Math.min(maxScale, Math.max(minScale, viewport.scale * scaleFactor))
+  const anchor = {
+    x: (previousCenter.x - viewport.x) / viewport.scale,
+    y: (previousCenter.y - viewport.y) / viewport.scale,
+  }
+  return {
+    scale,
+    x: center.x - anchor.x * scale,
+    y: center.y - anchor.y * scale,
+    rotation: viewport.rotation,
+  }
+}
