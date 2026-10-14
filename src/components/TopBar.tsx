@@ -23,7 +23,8 @@ import EditGpxModal from './EditGpxModal'
 import ExportModal from './ExportModal'
 import ReplaceProjectModal from './ReplaceProjectModal'
 import Tooltip from './Tooltip'
-import TopBarMenu, { buildOverflowActions } from './TopBarMenu'
+import TopBarMenu from './TopBarMenu'
+import { buildOverflowActions } from './overflowActions'
 
 export default function TopBar({
   layoutMode,
