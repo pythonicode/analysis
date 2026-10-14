@@ -1,10 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react'
-import { contentGroupRef } from '../contentGroupRef'
-import { stageRef } from '../stageRef'
-import { useAppStore } from '../store'
-import { getMapPointer } from '../utils/mapPointer'
-import { mapToLayerLocal } from '../utils/viewport'
 import type { Viewport } from '../types'
+import { pinchViewport } from '../utils/viewport'
 
 const MIN_DISTANCE = 10
 
@@ -25,6 +21,12 @@ function getCenter(
   }
 }
 
+/**
+ * Two-finger pinch-zoom and pan on the canvas. The viewport is the stage's
+ * transform: the point between the fingers stays under them while the scale
+ * and position change. onGestureStart/onGestureEnd let the canvas stop any
+ * one-finger drag that is still running, so the two do not fight over the stage.
+ */
 export function usePinchZoom(
   containerRef: RefObject<HTMLElement | null>,
   enabled: boolean,
@@ -33,6 +35,8 @@ export function usePinchZoom(
   onCommit: (viewport: Viewport) => void,
   minScale: number,
   maxScale: number,
+  onGestureStart?: () => void,
+  onGestureEnd?: () => void,
 ) {
   const pointersRef = useRef(
     new Map<number, { clientX: number; clientY: number }>(),
@@ -43,40 +47,19 @@ export function usePinchZoom(
   const getViewportRef = useRef(getViewport)
   const onPreviewRef = useRef(onPreview)
   const onCommitRef = useRef(onCommit)
+  const onGestureStartRef = useRef(onGestureStart)
+  const onGestureEndRef = useRef(onGestureEnd)
   getViewportRef.current = getViewport
   onPreviewRef.current = onPreview
   onCommitRef.current = onCommit
+  onGestureStartRef.current = onGestureStart
+  onGestureEndRef.current = onGestureEnd
 
   useEffect(() => {
     if (!enabled) return
     const container = containerRef.current
     if (!container) return
     const pointers = pointersRef.current
-
-    const getStagePoint = (clientX: number, clientY: number) => {
-      const rect = container.getBoundingClientRect()
-      return { x: clientX - rect.left, y: clientY - rect.top }
-    }
-
-    const mapPointAtClient = (clientX: number, clientY: number) => {
-      const stage = stageRef.current
-      const vp = viewportRef.current
-      const stagePoint = getStagePoint(clientX, clientY)
-
-      if (stage && contentGroupRef.current) {
-        stage.setPointersPositions({ clientX, clientY })
-        const mapPoint = getMapPointer(stage)
-        if (mapPoint) return { mapPoint, stagePoint }
-      }
-
-      return {
-        mapPoint: {
-          x: (stagePoint.x - vp.x) / vp.scale,
-          y: (stagePoint.y - vp.y) / vp.scale,
-        },
-        stagePoint,
-      }
-    }
 
     const onPointerDown = (e: PointerEvent) => {
       if (e.pointerType !== 'touch') return
@@ -88,9 +71,16 @@ export function usePinchZoom(
         const pts = [...pointers.values()]
         viewportRef.current = getViewportRef.current()
         lastPinchDistRef.current = getDistance(pts[0], pts[1])
-        lastPanCenterRef.current = getCenter(pts[0], pts[1])
+        lastPanCenterRef.current = toCanvas(getCenter(pts[0], pts[1]))
+        onGestureStartRef.current?.()
         e.preventDefault()
       }
+    }
+
+    /** Finger centre in canvas (container) coordinates, matching the viewport's x/y. */
+    const toCanvas = (point: { x: number; y: number }) => {
+      const rect = container.getBoundingClientRect()
+      return { x: point.x - rect.left, y: point.y - rect.top }
     }
 
     const onPointerMove = (e: PointerEvent) => {
@@ -105,38 +95,23 @@ export function usePinchZoom(
 
       const pts = [...pointers.values()]
       const dist = getDistance(pts[0], pts[1])
-      const center = getCenter(pts[0], pts[1])
+      const center = toCanvas(getCenter(pts[0], pts[1]))
       const vp = viewportRef.current
 
-      if (lastPinchDistRef.current !== null && lastPinchDistRef.current > 0) {
-        const scaleFactor = dist / lastPinchDistRef.current
-        const oldScale = vp.scale
-        const newScale = Math.min(
+      const lastCenter = lastPanCenterRef.current
+      if (
+        lastPinchDistRef.current !== null &&
+        lastPinchDistRef.current > 0 &&
+        lastCenter
+      ) {
+        const next = pinchViewport(
+          vp,
+          lastCenter,
+          center,
+          dist / lastPinchDistRef.current,
+          minScale,
           maxScale,
-          Math.max(minScale, oldScale * scaleFactor),
         )
-
-        const { mapPoint, stagePoint } = mapPointAtClient(center.x, center.y)
-        const mapImage = useAppStore.getState().mapImage
-        const mapCenter = mapImage
-          ? { x: mapImage.width / 2, y: mapImage.height / 2 }
-          : { x: 0, y: 0 }
-        const layerPoint = mapToLayerLocal(mapPoint, mapCenter, vp.rotation)
-
-        let nextX = stagePoint.x - layerPoint.x * newScale
-        let nextY = stagePoint.y - layerPoint.y * newScale
-
-        if (lastPanCenterRef.current) {
-          nextX += center.x - lastPanCenterRef.current.x
-          nextY += center.y - lastPanCenterRef.current.y
-        }
-
-        const next = {
-          scale: newScale,
-          x: nextX,
-          y: nextY,
-          rotation: vp.rotation,
-        }
         viewportRef.current = next
         onPreviewRef.current(next)
       }
@@ -149,7 +124,10 @@ export function usePinchZoom(
       const wasPinching = lastPinchDistRef.current !== null
       pointers.delete(e.pointerId)
       if (pointers.size < 2) {
-        if (wasPinching) onCommitRef.current(viewportRef.current)
+        if (wasPinching) {
+          onCommitRef.current(viewportRef.current)
+          onGestureEndRef.current?.()
+        }
         lastPinchDistRef.current = null
         lastPanCenterRef.current = null
       }
