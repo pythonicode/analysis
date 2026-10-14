@@ -13,11 +13,6 @@ export interface ExportOptions {
   textScale: number
 }
 
-export const DEFAULT_EXPORT_OPTIONS: ExportOptions = {
-  includeSidebar: true,
-  textScale: 1,
-}
-
 let markersSuppressed = false
 
 /** Throws when the browser could not encode the canvas (e.g. it exceeded a canvas limit). */
@@ -422,11 +417,6 @@ export async function downloadExport(options: ExportOptions): Promise<void> {
     has_sidebar: options.includeSidebar && annotations.length > 0,
     text_scale: options.textScale,
   })
-}
-
-/** @deprecated Use downloadExport via ExportModal */
-export function exportPng(): void {
-  void downloadExport(DEFAULT_EXPORT_OPTIONS)
 }
 
 export function defaultIncludeSidebar(
