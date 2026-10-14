@@ -6,6 +6,8 @@ export const PROJECT_VERSION = 1
 export interface ProjectFile extends ProjectData {
   format: typeof PROJECT_FORMAT
   version: typeof PROJECT_VERSION
+  /** Project name; omitted in files saved before named projects */
+  name?: string
 }
 
 type Rec = Record<string, unknown>
@@ -102,6 +104,9 @@ export function validateProjectFile(raw: unknown): ProjectFile {
   }
   if (raw.mapImage !== null && !isValidMapImage(raw.mapImage)) {
     throw new Error('Invalid map image in project file')
+  }
+  if (raw.name !== undefined && typeof raw.name !== 'string') {
+    throw new Error('Invalid project name in project file')
   }
   if (raw.rotation !== undefined && !isFiniteNumber(raw.rotation)) {
     throw new Error('Invalid rotation in project file')

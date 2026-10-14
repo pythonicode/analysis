@@ -1,10 +1,5 @@
 import { create } from 'zustand'
-import {
-  persist,
-  type PersistStorage,
-  type StorageValue,
-} from 'zustand/middleware'
-import { del, get, set as idbSet } from 'idb-keyval'
+import { persist } from 'zustand/middleware'
 import { AnalyticsEvents, trackEvent } from './analytics'
 import type {
   Annotation,
@@ -12,17 +7,21 @@ import type {
   GpxTrack,
   MapImage,
   MarkerDisplayMode,
-  PendingProjectOpen,
   Point,
   Tool,
   Viewport,
 } from './types'
 import {
+  DEFAULT_PROJECT_NAME,
+  newProjectId,
+  type PersistedProject,
+} from './persistence/library'
+import { createProjectStorage } from './persistence/projectStorage'
+import {
   ANNOTATION_TEXT_SCALE_DEFAULT,
   clampAnnotationTextScalePct,
 } from './utils/annotationTextScale'
 import { clampViewport, DEFAULT_VIEWPORT } from './utils/viewport'
-import { hasUnsavedEdits, setSaveState } from './saveStatus'
 
 /** The undoable part of the state: the analysis content and the map it sits on. */
 interface Snapshot {
@@ -38,173 +37,12 @@ export interface ProjectData extends Snapshot {
   rotation?: number
 }
 
-/** Fields written to IndexedDB. Pointer and pan/zoom are intentionally absent. */
-interface PersistedProject {
-  mapImage: MapImage | null
-  tracks: GpxTrack[]
-  paths: DrawnPath[]
-  annotations: Annotation[]
-  strokeWidth: number
-  strokeColor: string
-  strokeOpacity: number
-  markerDisplayMode: MarkerDisplayMode
-  annotationTextScalePct: number
-  rotation: number
-}
-
-const PERSIST_DEBOUNCE_MS = 400
-
-function samePersisted(a: PersistedProject, b: PersistedProject): boolean {
-  return (
-    a.mapImage === b.mapImage &&
-    a.tracks === b.tracks &&
-    a.paths === b.paths &&
-    a.annotations === b.annotations &&
-    a.strokeWidth === b.strokeWidth &&
-    a.strokeColor === b.strokeColor &&
-    a.strokeOpacity === b.strokeOpacity &&
-    a.markerDisplayMode === b.markerDisplayMode &&
-    a.annotationTextScalePct === b.annotationTextScalePct &&
-    a.rotation === b.rotation
-  )
-}
-
-/** IndexedDB key suffix for the map image, stored as a Blob beside the project JSON */
-const IMAGE_KEY_SUFFIX = ':image'
-
-async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
-  const response = await fetch(dataUrl)
-  return response.blob()
-}
-
-function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as string)
-    reader.onerror = () => reject(reader.error)
-    reader.readAsDataURL(blob)
-  })
-}
-
-/**
- * IndexedDB storage that skips pointer/viewport churn and collapses bursts of
- * real edits (typing, sliders) into one write.
- *
- * The map image is written as a Blob only when it changes, and the project
- * JSON keeps a placeholder (`src: ''`) instead of the base64 data URL. That
- * keeps every autosave from re-encoding tens of megabytes. Projects saved by
- * older builds still carry the image inline and are migrated on their next save.
- */
-function createProjectStorage(): PersistStorage<PersistedProject> {
-  let last: PersistedProject | null = null
-  /** The map image object currently written to IndexedDB, by reference */
-  let storedImage: MapImage | null = null
-  let timer: ReturnType<typeof setTimeout> | null = null
-  let pending: { name: string; value: StorageValue<PersistedProject> } | null =
-    null
-  /** Serializes writes so a slow image write cannot land after a newer project write */
-  let writes: Promise<void> = Promise.resolve()
-
-  const persist = async (name: string, value: StorageValue<PersistedProject>) => {
-    const image = value.state.mapImage
-    if (image !== storedImage) {
-      if (image) {
-        await idbSet(name + IMAGE_KEY_SUFFIX, await dataUrlToBlob(image.src))
-      } else {
-        await del(name + IMAGE_KEY_SUFFIX)
-      }
-      storedImage = image
-    }
-    const withPlaceholder: StorageValue<PersistedProject> = {
-      ...value,
-      state: {
-        ...value.state,
-        mapImage: image ? { ...image, src: '' } : null,
-      },
-    }
-    await idbSet(name, JSON.stringify(withPlaceholder))
-  }
-
-  const flush = () => {
-    if (timer !== null) {
-      clearTimeout(timer)
-      timer = null
-    }
-    const job = pending
-    pending = null
-    if (!job) return
-    setSaveState({ status: 'saving', savedAt: null })
-    writes = writes
-      .then(() => persist(job.name, job.value))
-      .then(() => {
-        // A newer edit may have arrived while this write was in flight
-        if (!pending) setSaveState({ status: 'saved', savedAt: Date.now() })
-      })
-      .catch((error: unknown) => {
-        console.error('Autosave failed', error)
-        setSaveState({ status: 'error', savedAt: null })
-      })
-  }
-
-  if (typeof window !== 'undefined') {
-    window.addEventListener('pagehide', flush)
-    // Warn only when an edit would be lost; a normal save in progress needs no prompt
-    window.addEventListener('beforeunload', (event) => {
-      const unsaved = hasUnsavedEdits()
-      flush()
-      if (unsaved) {
-        event.preventDefault()
-        event.returnValue = ''
-      }
-    })
-  }
-
-  return {
-    getItem: async (name) => {
-      const raw = await get<string>(name)
-      if (!raw) return null
-      const parsed = JSON.parse(raw) as StorageValue<PersistedProject>
-      const state = parsed.state
-      if (state.mapImage && !state.mapImage.src) {
-        const blob = await get<Blob>(name + IMAGE_KEY_SUFFIX)
-        state.mapImage = blob
-          ? { ...state.mapImage, src: await blobToDataUrl(blob) }
-          : null
-        storedImage = state.mapImage
-      } else {
-        // Legacy save with the image inline: force a migration on the next write
-        storedImage = null
-      }
-      last = state
-      return parsed
-    },
-    setItem: (name, value) => {
-      const next = value.state
-      if (last && samePersisted(last, next)) return
-      last = next
-      pending = { name, value }
-      setSaveState({ status: 'pending', savedAt: null })
-      if (timer !== null) clearTimeout(timer)
-      timer = setTimeout(flush, PERSIST_DEBOUNCE_MS)
-    },
-    removeItem: async (name) => {
-      last = null
-      storedImage = null
-      pending = null
-      if (timer !== null) {
-        clearTimeout(timer)
-        timer = null
-      }
-      await writes
-      await del(name)
-      await del(name + IMAGE_KEY_SUFFIX)
-    },
-  }
-}
-
 const HISTORY_LIMIT = 100
 
 interface AppState extends Snapshot {
+  /** Identifies this project in the library; changes when another project is opened */
+  projectId: string
+  projectName: string
   activeTool: Tool
   mapImage: MapImage | null
   strokeWidth: number
@@ -218,8 +56,6 @@ interface AppState extends Snapshot {
   markerDisplayMode: MarkerDisplayMode
   annotationTextScalePct: number
   toastMessage: string | null
-  /** Project open awaiting confirmation because it would replace current work */
-  pendingProjectOpen: PendingProjectOpen | null
 
   past: Snapshot[]
   future: Snapshot[]
@@ -241,7 +77,7 @@ interface AppState extends Snapshot {
   setMarkerDisplayMode: (mode: MarkerDisplayMode) => void
   setAnnotationTextScalePct: (percent: number) => void
   setToastMessage: (message: string | null) => void
-  setPendingProjectOpen: (pending: PendingProjectOpen | null) => void
+  setProjectName: (name: string) => void
 
   addTrack: (track: GpxTrack) => void
   /** Pass a coalesceKey to merge rapid consecutive edits (e.g. slider drags) into one undo step */
@@ -260,11 +96,11 @@ interface AppState extends Snapshot {
   updateAnnotation: (id: string, patch: Partial<Annotation>) => void
   removeAnnotation: (id: string) => void
 
-  /** Replaces the current project content (e.g. when opening a saved project file). */
-  loadProject: (data: ProjectData) => void
+  /** Replaces the current project with another one (opened from the library or a file). */
+  loadProject: (data: ProjectData & { projectId: string; projectName: string }) => void
 
-  /** Clears all project content and returns the app to its initial state. */
-  newProject: () => void
+  /** Starts an empty project under the given library id. */
+  newProject: (project: { id: string; name: string }) => void
 
   undo: () => void
   redo: () => void
@@ -314,6 +150,8 @@ function reconcileSelection(
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
+      projectId: newProjectId(),
+      projectName: DEFAULT_PROJECT_NAME,
       activeTool: 'select',
   mapImage: null,
   tracks: [],
@@ -330,7 +168,6 @@ export const useAppStore = create<AppState>()(
   markerDisplayMode: 'labels',
   annotationTextScalePct: ANNOTATION_TEXT_SCALE_DEFAULT,
   toastMessage: null,
-  pendingProjectOpen: null,
 
   past: [],
   future: [],
@@ -353,7 +190,7 @@ export const useAppStore = create<AppState>()(
   setAnnotationTextScalePct: (percent) =>
     set({ annotationTextScalePct: clampAnnotationTextScalePct(percent) }),
   setToastMessage: (message) => set({ toastMessage: message }),
-  setPendingProjectOpen: (pending) => set({ pendingProjectOpen: pending }),
+  setProjectName: (name) => set({ projectName: name }),
 
   addTrack: (track) =>
     set((s) => ({ ...record(s, null), tracks: [...s.tracks, track] })),
@@ -402,6 +239,8 @@ export const useAppStore = create<AppState>()(
 
   loadProject: (data) =>
     set({
+      projectId: data.projectId,
+      projectName: data.projectName,
       mapImage: data.mapImage,
       tracks: data.tracks,
       paths: data.paths,
@@ -419,9 +258,11 @@ export const useAppStore = create<AppState>()(
       importError: null,
     }),
 
-  newProject: () => {
+  newProject: (project) => {
     trackEvent(AnalyticsEvents.NEW_PROJECT)
     set({
+      projectId: project.id,
+      projectName: project.name,
       activeTool: 'select',
       mapImage: null,
       tracks: [],
@@ -466,7 +307,9 @@ export const useAppStore = create<AppState>()(
       name: 'map-analysis',
       version: 1,
       storage: createProjectStorage(),
-      partialize: (s) => ({
+      partialize: (s): PersistedProject => ({
+        projectId: s.projectId,
+        projectName: s.projectName,
         mapImage: s.mapImage,
         tracks: s.tracks,
         paths: s.paths,

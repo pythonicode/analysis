@@ -4,6 +4,7 @@ import {
   FolderOpen,
   HardDriveDownload,
   Image,
+  Library,
   RefreshCw,
   Route,
   Save,
@@ -29,6 +30,7 @@ export function buildOverflowActions(opts: {
   onImportGpx: () => void
   onEditGpx: () => void
   onNew: () => void
+  onProjects: () => void
   onOpen: () => void
   onSave: () => void
   onExport: () => void
@@ -61,6 +63,12 @@ export function buildOverflowActions(opts: {
       label: 'New Project',
       icon: <FilePlus size={16} aria-hidden />,
       onClick: opts.onNew,
+    },
+    {
+      id: 'projects',
+      label: 'Projects',
+      icon: <Library size={16} aria-hidden />,
+      onClick: opts.onProjects,
     },
     {
       id: 'open',

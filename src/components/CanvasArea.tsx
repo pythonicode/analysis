@@ -7,7 +7,7 @@ import { useAppStore } from '../store'
 import { stageRef } from '../stageRef'
 import { simplifyPath } from '../utils/geometry'
 import { importDroppedFiles, importImageFile } from '../utils/files'
-import { requestOpenProject } from '../utils/project'
+import { openSampleProject } from '../utils/project'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import { usePinchZoom } from '../hooks/usePinchZoom'
 import MapImageLayer from './canvas/MapImageLayer'
@@ -517,7 +517,7 @@ export default function CanvasArea({
   const handleLoadSample = useCallback(async () => {
     setLoadingSample(true)
     try {
-      await requestOpenProject({ kind: 'sample' })
+      await openSampleProject()
     } finally {
       setLoadingSample(false)
     }
