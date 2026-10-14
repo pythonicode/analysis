@@ -1,17 +1,13 @@
 import { useState } from 'react'
-import { Minus, Plus } from 'lucide-react'
+import { Maximize2, Minus, Plus } from 'lucide-react'
 import { getToolLabel } from '../config/tools'
 import type { LegalDocumentId } from '../content/legal'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import { useAppStore } from '../store'
 import type { SaveStatus } from '../saveStatus'
-import {
-  ANNOTATION_TEXT_SCALE_MAX,
-  ANNOTATION_TEXT_SCALE_MIN,
-  ANNOTATION_TEXT_SCALE_STEP,
-} from '../utils/annotationTextScale'
 import { stageRef } from '../stageRef'
 import { useSaveState } from '../saveStatus'
+import TextSizeSlider from './TextSizeSlider'
 import CanvasRotationControl from './CanvasRotationControl'
 import LegalModal from './LegalModal'
 
@@ -54,10 +50,8 @@ export default function StatusBar({
   const scale = useAppStore((s) => s.viewport.scale)
   const setViewport = useAppStore((s) => s.setViewport)
   const pointer = useAppStore((s) => s.pointer)
-  const textScalePct = useAppStore((s) => s.annotationTextScalePct)
-  const setAnnotationTextScalePct = useAppStore(
-    (s) => s.setAnnotationTextScalePct,
-  )
+  const hasMap = useAppStore((s) => s.mapImage !== null)
+  const requestFitToView = useAppStore((s) => s.requestFitToView)
   const saveState = useSaveState()
   const [legalDoc, setLegalDoc] = useState<LegalDocumentId | null>(null)
 
@@ -66,6 +60,9 @@ export default function StatusBar({
   const showRotation = layoutMode !== 'touch'
   const showLegalLinks = layoutMode !== 'touch'
   const showCredit = layoutMode === 'desktop'
+  // Narrower layouts keep the bar to the essentials; the Style sheet holds the rest on touch
+  const showToolName = layoutMode === 'desktop'
+  const showTextSize = layoutMode !== 'touch'
 
   const zoomBy = (direction: 1 | -1) => {
     const viewport = useAppStore.getState().viewport
@@ -88,9 +85,17 @@ export default function StatusBar({
 
   return (
     <footer className="statusbar">
-      <span className="statusbar-zoom">
-        Zoom: {Math.round(scale * 100)}%
-      </span>
+      <button
+        type="button"
+        className="statusbar-zoom"
+        disabled={!hasMap}
+        onClick={requestFitToView}
+        title="Fit the map to the screen"
+        aria-label={`Zoom ${Math.round(scale * 100)}%. Fit map to screen`}
+      >
+        <Maximize2 size={12} aria-hidden />
+        <span>{Math.round(scale * 100)}%</span>
+      </button>
       {showRotation && <CanvasRotationControl compact={layoutMode === 'compact'} />}
       {showZoomButtons && (
         <span className="statusbar-zoom-controls">
@@ -112,24 +117,7 @@ export default function StatusBar({
           </button>
         </span>
       )}
-      <label className="statusbar-font">
-        <span>Text Size</span>
-        <input
-          className="statusbar-font-slider"
-          type="range"
-          min={ANNOTATION_TEXT_SCALE_MIN}
-          max={ANNOTATION_TEXT_SCALE_MAX}
-          step={ANNOTATION_TEXT_SCALE_STEP}
-          value={textScalePct}
-          aria-label="Font size"
-          aria-valuemin={ANNOTATION_TEXT_SCALE_MIN}
-          aria-valuemax={ANNOTATION_TEXT_SCALE_MAX}
-          aria-valuenow={textScalePct}
-          aria-valuetext={`${textScalePct}%`}
-          onChange={(e) => setAnnotationTextScalePct(Number(e.target.value))}
-        />
-        <span className="statusbar-font-value">{textScalePct}%</span>
-      </label>
+      {showTextSize && <TextSizeSlider label={layoutMode === 'compact' ? 'Text' : 'Text Size'} />}
       {showCoords && (
         <span>
           {pointer
@@ -137,7 +125,9 @@ export default function StatusBar({
             : 'X: — Y: —'}
         </span>
       )}
-      <span className="statusbar-tool">Tool: {getToolLabel(activeTool)}</span>
+      {showToolName && (
+        <span className="statusbar-tool">Tool: {getToolLabel(activeTool)}</span>
+      )}
       <SaveIndicator state={saveState} />
       {showLegalLinks && (
         <nav className="statusbar-legal" aria-label="Legal">
