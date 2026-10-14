@@ -1,7 +1,7 @@
 import { useAppStore } from '../store'
 import { AnalyticsEvents, trackEvent } from '../analytics'
 import { buildTrack, parseGpx } from './gpx'
-import { openProjectFile, isProjectFile } from './project'
+import { isProjectFile, requestOpenProject } from './project'
 
 export const MAX_IMAGE_BYTES = 20 * 1024 * 1024
 
@@ -99,7 +99,7 @@ export async function importGpxFile(
 export async function importDroppedFiles(files: FileList): Promise<void> {
   for (const file of Array.from(files)) {
     if (isProjectFile(file)) {
-      await openProjectFile(file, 'drop')
+      await requestOpenProject({ kind: 'file', file, source: 'drop' })
     } else if (file.name.toLowerCase().endsWith('.gpx')) {
       await importGpxFile(file, 'drop')
     } else if (file.type.startsWith('image/')) {

@@ -1,5 +1,6 @@
 import { useAppStore, type ProjectData } from '../store'
 import { AnalyticsEvents, trackEvent } from '../analytics'
+import type { PendingProjectOpen } from '../types'
 
 const PROJECT_FORMAT = 'map-analysis'
 const PROJECT_VERSION = 1
@@ -10,7 +11,7 @@ interface ProjectFile extends ProjectData {
   version: typeof PROJECT_VERSION
 }
 
-function hasProjectContent(data: ProjectData): boolean {
+export function hasProjectContent(data: ProjectData): boolean {
   return (
     data.mapImage !== null ||
     data.tracks.length > 0 ||
@@ -46,6 +47,31 @@ function validateProjectFile(raw: unknown): ProjectFile {
   }
 
   return data as unknown as ProjectFile
+}
+
+/** True when opening a project would discard content that is currently on screen. */
+export function currentProjectHasContent(): boolean {
+  const { mapImage, tracks, paths, annotations } = useAppStore.getState()
+  return hasProjectContent({ mapImage, tracks, paths, annotations })
+}
+
+/**
+ * Entry point for every project open (picker, drop, sample). Opens right away
+ * when there is nothing to lose; otherwise parks the request until the user
+ * confirms in ReplaceProjectModal.
+ */
+export function requestOpenProject(request: PendingProjectOpen): Promise<void> {
+  if (currentProjectHasContent()) {
+    useAppStore.getState().setPendingProjectOpen(request)
+    return Promise.resolve()
+  }
+  return runProjectOpen(request)
+}
+
+/** Performs a project open that has already been confirmed (or needs no confirmation). */
+export function runProjectOpen(request: PendingProjectOpen): Promise<void> {
+  if (request.kind === 'sample') return openSampleProject()
+  return openProjectFile(request.file, request.source)
 }
 
 export function isProjectFile(file: File): boolean {

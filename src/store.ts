@@ -12,6 +12,7 @@ import type {
   GpxTrack,
   MapImage,
   MarkerDisplayMode,
+  PendingProjectOpen,
   Point,
   Tool,
   Viewport,
@@ -137,6 +138,8 @@ interface AppState extends Snapshot {
   markerDisplayMode: MarkerDisplayMode
   annotationTextScalePct: number
   toastMessage: string | null
+  /** Project open awaiting confirmation because it would replace current work */
+  pendingProjectOpen: PendingProjectOpen | null
 
   past: Snapshot[]
   future: Snapshot[]
@@ -158,6 +161,7 @@ interface AppState extends Snapshot {
   setMarkerDisplayMode: (mode: MarkerDisplayMode) => void
   setAnnotationTextScalePct: (percent: number) => void
   setToastMessage: (message: string | null) => void
+  setPendingProjectOpen: (pending: PendingProjectOpen | null) => void
 
   addTrack: (track: GpxTrack) => void
   /** Pass a coalesceKey to merge rapid consecutive edits (e.g. slider drags) into one undo step */
@@ -241,6 +245,7 @@ export const useAppStore = create<AppState>()(
   markerDisplayMode: 'labels',
   annotationTextScalePct: ANNOTATION_TEXT_SCALE_DEFAULT,
   toastMessage: null,
+  pendingProjectOpen: null,
 
   past: [],
   future: [],
@@ -263,6 +268,7 @@ export const useAppStore = create<AppState>()(
   setAnnotationTextScalePct: (percent) =>
     set({ annotationTextScalePct: clampAnnotationTextScalePct(percent) }),
   setToastMessage: (message) => set({ toastMessage: message }),
+  setPendingProjectOpen: (pending) => set({ pendingProjectOpen: pending }),
 
   addTrack: (track) =>
     set((s) => ({ ...record(s, null), tracks: [...s.tracks, track] })),
