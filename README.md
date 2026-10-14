@@ -9,22 +9,22 @@ save them as `.anal` files to move between devices or keep a copy.
 
 ## Getting started
 
-Requires Node.js 22 or newer.
+Requires [Bun](https://bun.sh) 1.3 or newer.
 
 ```bash
-npm install
-npm run dev        # start the dev server
+bun install
+bun run dev        # start the dev server
 ```
 
 ## Scripts
 
 | Command | What it does |
 | --- | --- |
-| `npm run dev` | Vite dev server with hot reload |
-| `npm test` | Unit tests (Vitest) |
-| `npm run lint` | Oxlint |
-| `npm run build` | Generate PWA icons, type-check, and build for production |
-| `npm run preview` | Serve the production build locally |
+| `bun run dev` | Vite dev server with hot reload |
+| `bun run test` | Unit tests (Vitest) |
+| `bun run lint` | Oxlint |
+| `bun run build` | Generate PWA icons, type-check, and build for production |
+| `bun run preview` | Serve the production build locally |
 
 ## Configuration
 
