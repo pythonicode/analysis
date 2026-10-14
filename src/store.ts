@@ -68,16 +68,61 @@ function samePersisted(a: PersistedProject, b: PersistedProject): boolean {
   )
 }
 
+/** IndexedDB key suffix for the map image, stored as a Blob beside the project JSON */
+const IMAGE_KEY_SUFFIX = ':image'
+
+async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
+  const response = await fetch(dataUrl)
+  return response.blob()
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(blob)
+  })
+}
+
 /**
  * IndexedDB storage that skips pointer/viewport churn and collapses bursts of
- * real edits (typing, sliders) into one write. The on-disk shape stays
- * `{ state, version }` JSON so existing projects still load.
+ * real edits (typing, sliders) into one write.
+ *
+ * The map image is written as a Blob only when it changes, and the project
+ * JSON keeps a placeholder (`src: ''`) instead of the base64 data URL. That
+ * keeps every autosave from re-encoding tens of megabytes. Projects saved by
+ * older builds still carry the image inline and are migrated on their next save.
  */
 function createProjectStorage(): PersistStorage<PersistedProject> {
   let last: PersistedProject | null = null
+  /** The map image object currently written to IndexedDB, by reference */
+  let storedImage: MapImage | null = null
   let timer: ReturnType<typeof setTimeout> | null = null
   let pending: { name: string; value: StorageValue<PersistedProject> } | null =
     null
+  /** Serializes writes so a slow image write cannot land after a newer project write */
+  let writes: Promise<void> = Promise.resolve()
+
+  const persist = async (name: string, value: StorageValue<PersistedProject>) => {
+    const image = value.state.mapImage
+    if (image !== storedImage) {
+      if (image) {
+        await idbSet(name + IMAGE_KEY_SUFFIX, await dataUrlToBlob(image.src))
+      } else {
+        await del(name + IMAGE_KEY_SUFFIX)
+      }
+      storedImage = image
+    }
+    const withPlaceholder: StorageValue<PersistedProject> = {
+      ...value,
+      state: {
+        ...value.state,
+        mapImage: image ? { ...image, src: '' } : null,
+      },
+    }
+    await idbSet(name, JSON.stringify(withPlaceholder))
+  }
 
   const flush = () => {
     if (timer !== null) {
@@ -87,7 +132,11 @@ function createProjectStorage(): PersistStorage<PersistedProject> {
     const job = pending
     pending = null
     if (!job) return
-    void idbSet(job.name, JSON.stringify(job.value))
+    writes = writes
+      .then(() => persist(job.name, job.value))
+      .catch((error: unknown) => {
+        console.error('Autosave failed', error)
+      })
   }
 
   if (typeof window !== 'undefined') {
@@ -99,7 +148,18 @@ function createProjectStorage(): PersistStorage<PersistedProject> {
       const raw = await get<string>(name)
       if (!raw) return null
       const parsed = JSON.parse(raw) as StorageValue<PersistedProject>
-      last = parsed.state
+      const state = parsed.state
+      if (state.mapImage && !state.mapImage.src) {
+        const blob = await get<Blob>(name + IMAGE_KEY_SUFFIX)
+        state.mapImage = blob
+          ? { ...state.mapImage, src: await blobToDataUrl(blob) }
+          : null
+        storedImage = state.mapImage
+      } else {
+        // Legacy save with the image inline: force a migration on the next write
+        storedImage = null
+      }
+      last = state
       return parsed
     },
     setItem: (name, value) => {
@@ -112,12 +172,15 @@ function createProjectStorage(): PersistStorage<PersistedProject> {
     },
     removeItem: async (name) => {
       last = null
+      storedImage = null
       pending = null
       if (timer !== null) {
         clearTimeout(timer)
         timer = null
       }
+      await writes
       await del(name)
+      await del(name + IMAGE_KEY_SUFFIX)
     },
   }
 }
