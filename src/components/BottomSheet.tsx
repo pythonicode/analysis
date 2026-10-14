@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef } from 'react'
 import { X } from 'lucide-react'
+import { useEscapeKey } from '../hooks/useEscapeKey'
 
 export default function BottomSheet({
   title,
@@ -23,13 +24,7 @@ export default function BottomSheet({
     }
   }, [])
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+  useEscapeKey(onClose)
 
   useEffect(() => {
     const sheet = sheetRef.current

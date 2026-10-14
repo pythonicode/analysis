@@ -1,8 +1,8 @@
-import { useEffect } from 'react'
 import { Save, X } from 'lucide-react'
 import { saveProjectFile, PROJECT_FILE_EXTENSION } from '../utils/project'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import Tooltip from './Tooltip'
+import { useEscapeKey } from '../hooks/useEscapeKey'
 
 /** Confirms before the current project is replaced by a new or opened one. */
 export default function ReplaceProjectModal({
@@ -27,13 +27,7 @@ export default function ReplaceProjectModal({
 }) {
   const isTouch = layoutMode === 'touch'
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+  useEscapeKey(onClose)
 
   const confirm = () => {
     onConfirm()

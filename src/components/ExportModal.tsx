@@ -14,6 +14,7 @@ import {
   type ExportPreviewImages,
 } from '../utils/export'
 import type { LayoutMode } from '../hooks/useLayoutMode'
+import { useEscapeKey } from '../hooks/useEscapeKey'
 
 const PREVIEW_ZOOM_MIN = 1
 const PREVIEW_ZOOM_MAX = 4
@@ -99,13 +100,7 @@ export default function ExportModal({
     return () => observer.disconnect()
   }, [])
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+  useEscapeKey(onClose)
 
   /** Full-resolution bitmap when zoomed past fit; thumbnail otherwise. */
   const useFullRes = previewZoom > 1

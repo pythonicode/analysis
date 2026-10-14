@@ -1,7 +1,7 @@
-import { useEffect } from 'react'
 import { X } from 'lucide-react'
 import { LEGAL_DOCUMENTS, type LegalDocumentId } from '../content/legal'
 import Portal from './Portal'
+import { useEscapeKey } from '../hooks/useEscapeKey'
 
 export default function LegalModal({
   documentId,
@@ -12,13 +12,7 @@ export default function LegalModal({
 }) {
   const doc = LEGAL_DOCUMENTS[documentId]
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+  useEscapeKey(onClose)
 
   return (
     <Portal>
