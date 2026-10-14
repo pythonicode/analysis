@@ -6,6 +6,7 @@ import {
   FilePlus,
   FolderOpen,
   Image,
+  Library,
   Redo2,
   RefreshCw,
   Route,
@@ -15,13 +16,14 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '../store'
 import { importGpxFile, importImageFile } from '../utils/files'
-import { requestOpenProject, saveProjectFile, PROJECT_FILE_EXTENSION } from '../utils/project'
+import { openProjectFile, saveProjectFile, PROJECT_FILE_EXTENSION } from '../utils/project'
+import { createProject, renameCurrentProject } from '../projectLibrary'
+import ProjectLibraryModal from './ProjectLibraryModal'
 import { usePwaInstall } from '../hooks/usePwaInstall'
 import { usePwaUpdate } from '../hooks/usePwaUpdate'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import EditGpxModal from './EditGpxModal'
 import ExportModal from './ExportModal'
-import ReplaceProjectModal from './ReplaceProjectModal'
 import Tooltip from './Tooltip'
 import TopBarMenu from './TopBarMenu'
 import { buildOverflowActions } from './overflowActions'
@@ -43,14 +45,15 @@ export default function TopBar({
   const canRedo = useAppStore((s) => s.future.length > 0)
   const undo = useAppStore((s) => s.undo)
   const redo = useAppStore((s) => s.redo)
-  const newProject = useAppStore((s) => s.newProject)
+  const projectName = useAppStore((s) => s.projectName)
+  const setProjectName = useAppStore((s) => s.setProjectName)
 
   const imageInputRef = useRef<HTMLInputElement>(null)
   const gpxInputRef = useRef<HTMLInputElement>(null)
   const projectInputRef = useRef<HTMLInputElement>(null)
   const [gpxModalOpen, setGpxModalOpen] = useState(false)
   const [exportModalOpen, setExportModalOpen] = useState(false)
-  const [newProjectModalOpen, setNewProjectModalOpen] = useState(false)
+  const [libraryOpen, setLibraryOpen] = useState(false)
   const { canInstall, install } = usePwaInstall()
   const { updateAvailable, applyUpdate } = usePwaUpdate()
 
@@ -58,13 +61,7 @@ export default function TopBar({
   const isCompact = layoutMode === 'compact'
   const showOverflow = isTouch || isCompact
 
-  const handleNewProject = () => {
-    if (!canSave) {
-      newProject()
-      return
-    }
-    setNewProjectModalOpen(true)
-  }
+  const handleNewProject = () => void createProject()
 
   const overflowActions = buildOverflowActions({
     mapImage: mapImage !== null,
@@ -76,6 +73,7 @@ export default function TopBar({
     onImportGpx: () => gpxInputRef.current?.click(),
     onEditGpx: () => setGpxModalOpen(true),
     onNew: handleNewProject,
+    onProjects: () => setLibraryOpen(true),
     onOpen: () => projectInputRef.current?.click(),
     onSave: saveProjectFile,
     onExport: () => setExportModalOpen(true),
@@ -112,6 +110,18 @@ export default function TopBar({
           height={20}
         />
         {!isTouch && <h1>O-Analysis</h1>}
+        {!isTouch && (
+          <input
+            className="topbar-project-name"
+            type="text"
+            value={projectName}
+            maxLength={80}
+            aria-label="Project name"
+            title="Project name"
+            onChange={(e) => setProjectName(e.target.value)}
+            onBlur={(e) => renameCurrentProject(e.target.value)}
+          />
+        )}
       </div>
 
       {importError && !isTouch && errorBanner}
@@ -146,7 +156,7 @@ export default function TopBar({
           hidden
           onChange={(e) => {
             const file = e.target.files?.[0]
-            if (file) void requestOpenProject({ kind: 'file', file, source: 'file_picker' })
+            if (file) void openProjectFile(file, 'file_picker')
             e.target.value = ''
           }}
         />
@@ -221,6 +231,16 @@ export default function TopBar({
               <button type="button" className="button" onClick={handleNewProject}>
                 <FilePlus size={16} aria-hidden />
                 <span className="button-label">New</span>
+              </button>
+            </Tooltip>
+            <Tooltip content="Switch between saved projects">
+              <button
+                type="button"
+                className="button"
+                onClick={() => setLibraryOpen(true)}
+              >
+                <Library size={16} aria-hidden />
+                <span className="button-label">Projects</span>
               </button>
             </Tooltip>
             <Tooltip content={`Open a saved project (${PROJECT_FILE_EXTENSION})`}>
@@ -314,23 +334,10 @@ export default function TopBar({
         />
       )}
 
-      {newProjectModalOpen && (
-        <ReplaceProjectModal
+      {libraryOpen && (
+        <ProjectLibraryModal
           layoutMode={layoutMode}
-          title="Start a new project?"
-          description="Your current work will be cleared when you start a new project. Save or export it first if you want to keep a copy."
-          confirmLabel="Start new"
-          canSave={canSave}
-          onConfirm={newProject}
-          onClose={() => setNewProjectModalOpen(false)}
-          onExport={
-            mapImage !== null
-              ? () => {
-                  setNewProjectModalOpen(false)
-                  setExportModalOpen(true)
-                }
-              : undefined
-          }
+          onClose={() => setLibraryOpen(false)}
         />
       )}
     </header>
