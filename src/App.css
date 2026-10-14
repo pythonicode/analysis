@@ -2160,6 +2160,14 @@
   text-transform: capitalize;
 }
 
+.statusbar-save {
+  white-space: nowrap;
+}
+
+.statusbar-save-error {
+  color: #b91c1c;
+}
+
 .statusbar-legal {
   display: inline-flex;
   align-items: center;

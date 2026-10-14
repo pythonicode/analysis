@@ -22,6 +22,7 @@ import {
   clampAnnotationTextScalePct,
 } from './utils/annotationTextScale'
 import { clampViewport, DEFAULT_VIEWPORT } from './utils/viewport'
+import { hasUnsavedEdits, setSaveState } from './saveStatus'
 
 /** The undoable part of the state: the analysis content and the map it sits on. */
 interface Snapshot {
@@ -132,15 +133,30 @@ function createProjectStorage(): PersistStorage<PersistedProject> {
     const job = pending
     pending = null
     if (!job) return
+    setSaveState({ status: 'saving', savedAt: null })
     writes = writes
       .then(() => persist(job.name, job.value))
+      .then(() => {
+        // A newer edit may have arrived while this write was in flight
+        if (!pending) setSaveState({ status: 'saved', savedAt: Date.now() })
+      })
       .catch((error: unknown) => {
         console.error('Autosave failed', error)
+        setSaveState({ status: 'error', savedAt: null })
       })
   }
 
   if (typeof window !== 'undefined') {
     window.addEventListener('pagehide', flush)
+    // Warn only when an edit would be lost; a normal save in progress needs no prompt
+    window.addEventListener('beforeunload', (event) => {
+      const unsaved = hasUnsavedEdits()
+      flush()
+      if (unsaved) {
+        event.preventDefault()
+        event.returnValue = ''
+      }
+    })
   }
 
   return {
@@ -167,6 +183,7 @@ function createProjectStorage(): PersistStorage<PersistedProject> {
       if (last && samePersisted(last, next)) return
       last = next
       pending = { name, value }
+      setSaveState({ status: 'pending', savedAt: null })
       if (timer !== null) clearTimeout(timer)
       timer = setTimeout(flush, PERSIST_DEBOUNCE_MS)
     },
