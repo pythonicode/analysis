@@ -2,6 +2,7 @@ import { stageRef } from '../stageRef'
 import { contentGroupRef } from '../contentGroupRef'
 import { useAppStore } from '../store'
 import { AnalyticsEvents, trackEvent } from '../analytics'
+import { exportScaleFor } from './exportScale'
 import { markerLabel } from './labels'
 import { drawMapMarkers } from './exportMarkers'
 import type { Annotation } from '../types'
@@ -18,29 +19,6 @@ export const DEFAULT_EXPORT_OPTIONS: ExportOptions = {
 }
 
 let markersSuppressed = false
-
-/**
- * iOS Safari cannot allocate canvases above ~16.7M pixels and fails silently
- * (blank or "data:," output), so exports on iOS are scaled down to fit.
- * Desktop browsers handle far larger canvases, so they keep full resolution.
- */
-const IOS_MAX_EXPORT_PIXELS = 16_000_000
-
-function isIosDevice(): boolean {
-  if (typeof navigator === 'undefined') return false
-  // iPadOS reports a desktop user agent, so also check for touch points
-  return (
-    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
-  )
-}
-
-/** Scale factor (<= 1) that keeps a width x height export within the device's canvas limit. */
-export function exportScaleFor(width: number, height: number): number {
-  if (!isIosDevice()) return 1
-  const area = width * height
-  return area > IOS_MAX_EXPORT_PIXELS ? Math.sqrt(IOS_MAX_EXPORT_PIXELS / area) : 1
-}
 
 /** Throws when the browser could not encode the canvas (e.g. it exceeded a canvas limit). */
 function assertEncodedPng(url: string): string {
