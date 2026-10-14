@@ -78,6 +78,9 @@ interface AppState extends Snapshot {
   setAnnotationTextScalePct: (percent: number) => void
   setToastMessage: (message: string | null) => void
   setProjectName: (name: string) => void
+  /** Bumped to ask the canvas to fit the map to the screen */
+  fitRequest: number
+  requestFitToView: () => void
 
   addTrack: (track: GpxTrack) => void
   /** Pass a coalesceKey to merge rapid consecutive edits (e.g. slider drags) into one undo step */
@@ -191,6 +194,8 @@ export const useAppStore = create<AppState>()(
     set({ annotationTextScalePct: clampAnnotationTextScalePct(percent) }),
   setToastMessage: (message) => set({ toastMessage: message }),
   setProjectName: (name) => set({ projectName: name }),
+  fitRequest: 0,
+  requestFitToView: () => set((s) => ({ fitRequest: s.fitRequest + 1 })),
 
   addTrack: (track) =>
     set((s) => ({ ...record(s, null), tracks: [...s.tracks, track] })),

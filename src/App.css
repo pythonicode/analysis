@@ -2503,3 +2503,101 @@ a.statusbar-legal-link {
     transform: scale(1);
   }
 }
+
+/* ---- Responsive shell: status bar, toolbars and short screens ---- */
+
+.statusbar {
+  white-space: nowrap;
+}
+
+.statusbar-zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  font: inherit;
+  color: var(--text-h);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.statusbar-zoom:hover:not(:disabled),
+.statusbar-zoom:focus-visible {
+  background: var(--code-bg);
+  border-color: var(--border);
+  outline: none;
+}
+
+.statusbar-zoom:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.app-shell[data-layout='touch'] .statusbar {
+  gap: 12px;
+}
+
+.style-sheet-text-size {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  font: 13px var(--mono);
+  color: var(--text);
+}
+
+.style-sheet-text-size .statusbar-font-slider {
+  flex: 1;
+  width: auto;
+}
+
+@media (max-width: 420px) {
+  .bottom-toolbar {
+    gap: 2px;
+    padding: 4px;
+  }
+
+  .bottom-tool-button {
+    min-width: 40px;
+    padding: 4px 2px;
+  }
+
+  .bottom-tool-label {
+    font-size: 9px;
+  }
+}
+
+/* Landscape phones and other short screens: give the canvas the height */
+@media (max-height: 500px) {
+  .app-shell[data-layout='touch'] .touch-hints {
+    display: none;
+  }
+
+  .app-shell[data-layout='touch'] .bottom-tool-button {
+    flex-direction: row;
+    min-height: 40px;
+  }
+
+  .app-shell[data-layout='touch'] .bottom-tool-label {
+    display: none;
+  }
+
+  .app-shell[data-layout='touch'] .statusbar {
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+}
+
+/* Keep the rotation slider from stretching across the status bar */
+.statusbar .canvas-rotation-control-compact {
+  flex: 0 1 260px;
+  width: auto;
+  min-width: 140px;
+}
+
+.statusbar .canvas-rotation-control-compact .canvas-rotation-slider {
+  min-width: 0;
+  flex: 1;
+}

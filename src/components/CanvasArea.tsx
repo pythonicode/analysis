@@ -74,10 +74,14 @@ export default function CanvasArea({
   const [loadingSample, setLoadingSample] = useState(false)
   const mapInputRef = useRef<HTMLInputElement>(null)
   const lastFittedSrc = useRef<string | null>(null)
+  /** True until the user zooms or pans, so resizing keeps the map fitted */
+  const autoFitRef = useRef(true)
+  const fitRequest = useAppStore((s) => s.fitRequest)
   const erasingRef = useRef(false)
 
   const commitViewport = useCallback(
     (viewport: Viewport) => {
+      autoFitRef.current = false
       if (zoomFrameRef.current != null) {
         cancelAnimationFrame(zoomFrameRef.current)
         zoomFrameRef.current = null
@@ -98,6 +102,7 @@ export default function CanvasArea({
   )
 
   const previewZoom = useCallback((viewport: Viewport) => {
+    autoFitRef.current = false
     const next = clampViewport(viewport)
     gestureRef.current = true
     viewportRef.current = next
@@ -177,13 +182,13 @@ export default function CanvasArea({
     })
   }, [])
 
-  useEffect(() => {
-    if (!mapImage || size.width === 0 || size.height === 0) return
-    if (lastFittedSrc.current === mapImage.src) return
-    lastFittedSrc.current = mapImage.src
+  /** Scales and centres the map so it fills the canvas, keeping the current rotation. */
+  const fitToView = useCallback(() => {
+    const image = useAppStore.getState().mapImage
+    if (!image || size.width === 0 || size.height === 0) return
     const rotation = useAppStore.getState().viewport.rotation
-    const center = { x: mapImage.width / 2, y: mapImage.height / 2 }
-    const bounds = rotatedBounds(mapImage.width, mapImage.height, rotation)
+    const center = { x: image.width / 2, y: image.height / 2 }
+    const bounds = rotatedBounds(image.width, image.height, rotation)
     const scale =
       Math.min(size.width / bounds.width, size.height / bounds.height) * 0.95
     commitViewport({
@@ -192,7 +197,21 @@ export default function CanvasArea({
       x: size.width / 2 - center.x * scale,
       y: size.height / 2 - center.y * scale,
     })
-  }, [mapImage, size, commitViewport])
+    autoFitRef.current = true
+  }, [size, commitViewport])
+
+  // Fit a newly loaded map, and re-fit when the canvas resizes unless the user has zoomed
+  useEffect(() => {
+    if (!mapImage || size.width === 0 || size.height === 0) return
+    const mapChanged = lastFittedSrc.current !== mapImage.src
+    if (!mapChanged && !autoFitRef.current) return
+    lastFittedSrc.current = mapImage.src
+    fitToView()
+  }, [mapImage, size, fitToView])
+
+  useEffect(() => {
+    if (fitRequest > 0) fitToView()
+  }, [fitRequest, fitToView])
 
   useEffect(() => {
     const isEditableTarget = (e: KeyboardEvent) => {

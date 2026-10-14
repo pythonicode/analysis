@@ -5,6 +5,7 @@ import { useAppStore } from '../store'
 import BottomSheet from './BottomSheet'
 import StrokeSettings from './StrokeSettings'
 import CanvasRotationControl from './CanvasRotationControl'
+import TextSizeSlider from './TextSizeSlider'
 
 export default function BottomToolBar() {
   const activeTool = useAppStore((s) => s.activeTool)
@@ -65,6 +66,7 @@ export default function BottomToolBar() {
       {settingsOpen && (
         <BottomSheet title="View & stroke settings" onClose={() => setSettingsOpen(false)}>
           <CanvasRotationControl compact />
+          <TextSizeSlider label="Comment text size" className="style-sheet-text-size" />
           <StrokeSettings layoutMode="touch" />
         </BottomSheet>
       )}

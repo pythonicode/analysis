@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { useIsTouchLayout } from '../hooks/useLayoutMode'
 
 const STORAGE_KEY = 'touch-hints-dismissed'
+const AUTO_HIDE_MS = 12000
 
 export default function TouchHints() {
   const isTouch = useIsTouchLayout()
@@ -12,6 +13,12 @@ export default function TouchHints() {
     if (!isTouch) return
     if (localStorage.getItem(STORAGE_KEY)) return
     setVisible(true)
+    // Tips are for first use; hide them on their own and remember that they were seen
+    const timer = window.setTimeout(() => {
+      localStorage.setItem(STORAGE_KEY, '1')
+      setVisible(false)
+    }, AUTO_HIDE_MS)
+    return () => window.clearTimeout(timer)
   }, [isTouch])
 
   if (!visible) return null
