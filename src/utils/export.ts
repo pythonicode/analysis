@@ -19,6 +19,37 @@ export const DEFAULT_EXPORT_OPTIONS: ExportOptions = {
 
 let markersSuppressed = false
 
+/**
+ * iOS Safari cannot allocate canvases above ~16.7M pixels and fails silently
+ * (blank or "data:," output), so exports on iOS are scaled down to fit.
+ * Desktop browsers handle far larger canvases, so they keep full resolution.
+ */
+const IOS_MAX_EXPORT_PIXELS = 16_000_000
+
+function isIosDevice(): boolean {
+  if (typeof navigator === 'undefined') return false
+  // iPadOS reports a desktop user agent, so also check for touch points
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
+  )
+}
+
+/** Scale factor (<= 1) that keeps a width x height export within the device's canvas limit. */
+export function exportScaleFor(width: number, height: number): number {
+  if (!isIosDevice()) return 1
+  const area = width * height
+  return area > IOS_MAX_EXPORT_PIXELS ? Math.sqrt(IOS_MAX_EXPORT_PIXELS / area) : 1
+}
+
+/** Throws when the browser could not encode the canvas (e.g. it exceeded a canvas limit). */
+function assertEncodedPng(url: string): string {
+  if (!url.startsWith('data:image/png') || url.length < 64) {
+    throw new Error('This map is too large to export on this device')
+  }
+  return url
+}
+
 /** When true, MarkersLayer skips rendering so export can composite markers separately. */
 export function areExportMarkersSuppressed(): boolean {
   return markersSuppressed
@@ -36,6 +67,13 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 export interface ExportPreviewImages {
   full: { url: string; width: number; height: number }
   thumb: { url: string; width: number; height: number }
+  /** Output scale relative to the map's native resolution (1 = full size) */
+  scale: number
+}
+
+interface RenderedExport {
+  url: string
+  scale: number
 }
 
 /** Downscaled copy for the fit-to-view preview; full export resolution kept for zoom. */
@@ -70,13 +108,13 @@ const PREVIEW_THUMB_MAX_PX = 1600
 export async function renderExportPreviews(
   options: ExportOptions,
 ): Promise<ExportPreviewImages | null> {
-  const url = await renderExportDataUrl(options)
-  if (!url) return null
+  const rendered = await renderExportDataUrl(options)
+  if (!rendered) return null
 
-  const img = await loadImage(url)
-  const full = { url, width: img.width, height: img.height }
-  const thumb = await createPreviewThumbnail(url, PREVIEW_THUMB_MAX_PX)
-  return { full, thumb }
+  const img = await loadImage(rendered.url)
+  const full = { url: rendered.url, width: img.width, height: img.height }
+  const thumb = await createPreviewThumbnail(rendered.url, PREVIEW_THUMB_MAX_PX)
+  return { full, thumb, scale: rendered.scale }
 }
 
 /** Splits text into lines that fit maxWidth, honouring explicit newlines. */
@@ -258,6 +296,7 @@ function waitForPaint(): Promise<void> {
 function captureMapAtNativeResolution(
   stage: NonNullable<typeof stageRef.current>,
   mapImage: { width: number; height: number },
+  pixelRatio: number,
 ): string {
   const prevWidth = stage.width()
   const prevHeight = stage.height()
@@ -291,7 +330,7 @@ function captureMapAtNativeResolution(
       y: 0,
       width: mapImage.width,
       height: mapImage.height,
-      pixelRatio: 1,
+      pixelRatio,
       mimeType: 'image/png',
     })
   } finally {
@@ -308,7 +347,7 @@ function captureMapAtNativeResolution(
   }
 }
 
-async function captureBaseMap(): Promise<string | null> {
+async function captureBaseMap(pixelRatio: number): Promise<string | null> {
   const stage = stageRef.current
   const { mapImage, setSelectedId, activeTool, setActiveTool } =
     useAppStore.getState()
@@ -321,7 +360,7 @@ async function captureBaseMap(): Promise<string | null> {
   await waitForPaint()
 
   try {
-    return captureMapAtNativeResolution(stage, mapImage)
+    return captureMapAtNativeResolution(stage, mapImage, pixelRatio)
   } finally {
     markersSuppressed = false
     await waitForPaint()
@@ -329,59 +368,61 @@ async function captureBaseMap(): Promise<string | null> {
 }
 
 /**
- * Renders the full export composite at native map resolution.
- * Returns a PNG data URL or null when no map is loaded.
+ * Renders the export composite at native map resolution, scaled down only
+ * when the device cannot allocate a canvas that large. Returns null when no
+ * map is loaded.
  */
 export async function renderExportDataUrl(
   options: ExportOptions,
-): Promise<string | null> {
+): Promise<RenderedExport | null> {
   const { mapImage, annotations, markerDisplayMode } = useAppStore.getState()
   if (!mapImage) return null
-
-  const mapDataUrl = await captureBaseMap()
-  if (!mapDataUrl) return null
 
   const useSidebar =
     options.includeSidebar && annotations.length > 0
   const columnWidth = useSidebar ? columnWidthForMap(mapImage.width) : 0
 
-  const canvas = document.createElement('canvas')
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return null
-
-  if (!useSidebar) {
-    canvas.width = mapImage.width
-    canvas.height = mapImage.height
-    const mapRender = await loadImage(mapDataUrl)
-    ctx.imageSmoothingEnabled = false
-    ctx.drawImage(mapRender, 0, 0)
-    drawMapMarkers(ctx, annotations, markerDisplayMode, options.textScale)
-    return canvas.toDataURL('image/png')
-  }
-
   const measureCanvas = document.createElement('canvas')
   const measureCtx = measureCanvas.getContext('2d')
   if (!measureCtx) return null
 
-  const layout = layoutSidebar(
-    measureCtx,
-    annotations,
-    columnWidth,
-    mapImage.height,
-    options.textScale,
-  )
-  const sidebarWidth = columnWidth * layout.columns.length
+  const layout = useSidebar
+    ? layoutSidebar(
+        measureCtx,
+        annotations,
+        columnWidth,
+        mapImage.height,
+        options.textScale,
+      )
+    : null
+  const sidebarWidth = layout ? columnWidth * layout.columns.length : 0
+  const totalWidth = mapImage.width + sidebarWidth
+  const scale = exportScaleFor(totalWidth, mapImage.height)
 
-  canvas.width = mapImage.width + sidebarWidth
-  canvas.height = mapImage.height
+  const mapDataUrl = await captureBaseMap(scale)
+  if (!mapDataUrl) return null
+
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+
+  canvas.width = Math.round(totalWidth * scale)
+  canvas.height = Math.round(mapImage.height * scale)
+  // Draw in native map coordinates; the transform handles the downscale
+  ctx.setTransform(scale, 0, 0, scale, 0, 0)
 
   const mapRender = await loadImage(mapDataUrl)
   ctx.imageSmoothingEnabled = false
-  ctx.drawImage(mapRender, 0, 0)
+  ctx.drawImage(mapRender, 0, 0, mapImage.width, mapImage.height)
   drawMapMarkers(ctx, annotations, markerDisplayMode, options.textScale)
-  drawSidebar(ctx, layout, mapImage.width, mapImage.height)
+  if (layout) {
+    drawSidebar(ctx, layout, mapImage.width, mapImage.height)
+  }
 
-  return canvas.toDataURL('image/png')
+  return {
+    url: assertEncodedPng(canvas.toDataURL('image/png')),
+    scale,
+  }
 }
 
 /** Downloads the export PNG with the given options. */
@@ -389,12 +430,12 @@ export async function downloadExport(options: ExportOptions): Promise<void> {
   const { mapImage, annotations } = useAppStore.getState()
   if (!mapImage) return
 
-  const dataUrl = await renderExportDataUrl(options)
-  if (!dataUrl) return
+  const rendered = await renderExportDataUrl(options)
+  if (!rendered) return
 
   const baseName = mapImage.name.replace(/\.[^.]+$/, '') || 'map'
   const anchor = document.createElement('a')
-  anchor.href = dataUrl
+  anchor.href = rendered.url
   anchor.download = `${baseName}-analysis.png`
   anchor.click()
 
