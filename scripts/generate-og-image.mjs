@@ -41,23 +41,6 @@ const markerSvg = markers
   })
   .join('')
 
-// Feature pills under the tagline; widths are fixed so the row reads evenly
-const chips = [
-  { label: 'GPX tracks', w: 172 },
-  { label: 'Draw routes', w: 184 },
-  { label: 'Annotated PNG', w: 212 },
-]
-let chipX = 72
-const chipSvg = chips
-  .map(({ label, w }) => {
-    const x = chipX
-    chipX += w + 16
-    return `
-    <rect x="${x}" y="428" width="${w}" height="50" rx="25" fill="#f97316" fill-opacity="0.14" stroke="#f97316" stroke-opacity="0.6" stroke-width="2"/>
-    <text x="${x + w / 2}" y="461" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="22" font-weight="600" fill="#fdba74">${label}</text>`
-  })
-  .join('')
-
 const svg = `
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}">
   <defs>
@@ -79,9 +62,9 @@ const svg = `
 
   <image href="data:image/svg+xml;base64,${logo}" x="72" y="92" width="92" height="92"/>
   <text x="72" y="282" font-family="Helvetica, Arial, sans-serif" font-size="88" font-weight="700" fill="#fff7ed" letter-spacing="-2">O-Analysis</text>
-  <text font-family="Helvetica, Arial, sans-serif" font-size="30" fill="#d6d3d1">
-    <tspan x="72" y="340">Analyze orienteering maps. Import GPX tracks,</tspan>
-    <tspan x="72" y="382">draw routes and export annotated maps.</tspan>
+  <text font-family="Helvetica, Arial, sans-serif" font-size="34" fill="#d6d3d1">
+    <tspan x="72" y="340">Analyze and annotate your</tspan>
+    <tspan x="72" y="384">orienteering sessions</tspan>
   </text>
 
   <g transform="rotate(-3 ${cardCentre.x} ${cardCentre.y})">
@@ -90,8 +73,6 @@ const svg = `
     <image href="${mapDataUrl}" x="${card.x}" y="${card.y}" width="${CARD_W}" height="${CARD_H}" preserveAspectRatio="xMidYMid slice"/>
     ${markerSvg}
   </g>
-
-  ${chipSvg}
 
   <text x="72" y="578" font-family="Helvetica, Arial, sans-serif" font-size="22" fill="#a8a29e">oanalysis.com</text>
 </svg>`
