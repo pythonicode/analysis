@@ -1,32 +1,57 @@
-# React + TypeScript + Vite
+# O-Analysis
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A browser app for analysing orienteering maps. Import a map image, overlay GPX
+tracks (georeferenced by pinning points), draw routes, add numbered control
+annotations, and export an annotated PNG.
 
-Currently, two official plugins are available:
+Everything runs in the browser. Projects autosave to IndexedDB, and you can
+save them as `.anal` files to move between devices or keep a copy.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Getting started
 
-## React Compiler
+Requires Node.js 22 or newer.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev        # start the dev server
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Scripts
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Vite dev server with hot reload |
+| `npm test` | Unit tests (Vitest) |
+| `npm run lint` | Oxlint |
+| `npm run build` | Generate PWA icons, type-check, and build for production |
+| `npm run preview` | Serve the production build locally |
+
+## Configuration
+
+Copy `.env.example` to `.env.local` and set `VITE_ANALYTICS_HOSTNAME` to the
+domain registered with One Dollar Stats. Without it, the build uses
+`oanalysis.com`.
+
+## Project layout
+
+- `src/store.ts`: Zustand store, undo/redo history, and the IndexedDB autosave
+  layer (project JSON plus the map image as a separate Blob)
+- `src/utils/project.ts`: open, save, and the confirm-before-replacing flow
+- `src/utils/projectValidation.ts`: checks every entry of a `.anal` file before
+  it is loaded
+- `src/utils/export.ts`, `src/utils/exportScale.ts`: PNG composition and the
+  iOS canvas-size limit
+- `src/components/canvas/`: Konva layers for the map, GPX tracks and markers
+- `src/utils/gpx.ts`, `gpxMetrics.ts`: GPX parsing and per-point metrics
+
+## Project file format
+
+`.anal` files are JSON with `format: "map-analysis"` and `version: 1`. They hold
+the map image as a data URL, GPX tracks, drawings, annotations, and the canvas
+rotation. Older files that embed the map image load without changes.
+
+## Privacy
+
+The app does not upload map, track or project data. Analytics records only
+anonymous usage events, such as that an export happened. See the Privacy Policy
+inside the app for details.
