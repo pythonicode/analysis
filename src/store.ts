@@ -23,8 +23,9 @@ import {
 } from './utils/annotationTextScale'
 import { clampViewport, DEFAULT_VIEWPORT } from './utils/viewport'
 
-/** The undoable part of the state: the analysis content itself. */
+/** The undoable part of the state: the analysis content and the map it sits on. */
 interface Snapshot {
+  mapImage: MapImage | null
   paths: DrawnPath[]
   tracks: GpxTrack[]
   annotations: Annotation[]
@@ -32,7 +33,6 @@ interface Snapshot {
 
 /** Loadable project content: what Save/Open and persistence care about. */
 export interface ProjectData extends Snapshot {
-  mapImage: MapImage | null
   /** Clockwise canvas rotation in whole degrees; omitted in older projects */
   rotation?: number
 }
@@ -254,7 +254,12 @@ interface AppState extends Snapshot {
 }
 
 function takeSnapshot(s: Snapshot): Snapshot {
-  return { paths: s.paths, tracks: s.tracks, annotations: s.annotations }
+  return {
+    mapImage: s.mapImage,
+    paths: s.paths,
+    tracks: s.tracks,
+    annotations: s.annotations,
+  }
 }
 
 /**
@@ -315,7 +320,7 @@ export const useAppStore = create<AppState>()(
   lastCoalesceKey: null,
 
   setActiveTool: (tool) => set({ activeTool: tool }),
-  setMapImage: (image) => set({ mapImage: image }),
+  setMapImage: (image) => set((s) => ({ ...record(s, null), mapImage: image })),
   setStrokeWidth: (width) => set({ strokeWidth: width }),
   setStrokeColor: (color) => set({ strokeColor: color }),
   setStrokeOpacity: (opacity) => set({ strokeOpacity: opacity }),
