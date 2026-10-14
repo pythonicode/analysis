@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "generate-icons": "node scripts/generate-pwa-icons.mjs",
-    "build": "npm run generate-icons && tsc -b && vite build",
+    "build": "bun run generate-icons && tsc -b && vite build",
     "lint": "oxlint",
     "test": "vitest run",
     "preview": "vite preview"
