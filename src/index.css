@@ -1,4 +1,5 @@
 :root {
+  --palette-width: 80px;
   --text: #6b6375;
   --text-h: #08060d;
   --bg: #fff;
@@ -118,4 +119,35 @@ h2 {
 .app-error-boundary-reload:focus-visible {
   outline: 2px solid var(--accent-border);
   outline-offset: 2px;
+}
+
+/* Language picker */
+.statusbar-language,
+.style-sheet-language {
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 4px;
+  max-width: 180px;
+}
+
+.style-sheet-language {
+  display: block;
+  width: 100%;
+  max-width: none;
+  margin: 8px 0;
+  padding: 8px;
+  font-size: 15px;
+}
+
+/* Text in the touch Style sheet: sans-serif, label wraps above the slider instead of colliding with it */
+.style-sheet-text-size {
+  font-family: var(--sans);
+  flex-wrap: wrap;
+}
+
+.style-sheet-text-size > span:first-child {
+  flex: 1 1 100%;
 }

@@ -5,16 +5,20 @@ import './index.css'
 import App from './App.tsx'
 import AppErrorBoundary from './components/AppErrorBoundary.tsx'
 import { initServiceWorker } from './pwa.ts'
+import { initI18n } from './i18n'
 
 // Avoid 0×0 shadow-cache canvases when browser zoom lowers devicePixelRatio.
 Konva.pixelRatio = 1
 
 initServiceWorker()
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <AppErrorBoundary>
-      <App />
-    </AppErrorBoundary>
-  </StrictMode>,
-)
+// Load the saved or detected language before the first render, so nothing flashes in English
+void initI18n().then(() => {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <AppErrorBoundary>
+        <App />
+      </AppErrorBoundary>
+    </StrictMode>,
+  )
+})

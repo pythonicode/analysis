@@ -18,6 +18,7 @@ import { useAppStore } from '../store'
 import { importGpxFile, importImageFile } from '../utils/files'
 import { openProjectFile, saveProjectFile, PROJECT_FILE_EXTENSION } from '../utils/project'
 import { createProject, renameCurrentProject } from '../projectLibrary'
+import { projectDisplayName } from '../persistence/library'
 import ProjectLibraryModal from './ProjectLibraryModal'
 import { usePwaInstall } from '../hooks/usePwaInstall'
 import { usePwaUpdate } from '../hooks/usePwaUpdate'
@@ -27,12 +28,14 @@ import ExportModal from './ExportModal'
 import Tooltip from './Tooltip'
 import TopBarMenu from './TopBarMenu'
 import { buildOverflowActions } from './overflowActions'
+import { useT } from '../i18n'
 
 export default function TopBar({
   layoutMode,
 }: {
   layoutMode: LayoutMode
 }) {
+  const t = useT()
   const mapImage = useAppStore((s) => s.mapImage)
   const hasTracks = useAppStore((s) => s.tracks.length > 0)
   const hasPaths = useAppStore((s) => s.paths.length > 0)
@@ -91,7 +94,7 @@ export default function TopBar({
       <button
         type="button"
         className="topbar-error-dismiss"
-        aria-label="Dismiss error"
+        aria-label={t('top.dismissError')}
         onClick={() => setImportError(null)}
       >
         <X size={14} aria-hidden />
@@ -114,10 +117,10 @@ export default function TopBar({
           <input
             className="topbar-project-name"
             type="text"
-            value={projectName}
+            value={projectDisplayName(projectName)}
             maxLength={80}
-            aria-label="Project name"
-            title="Project name"
+            aria-label={t('top.projectName')}
+            title={t('top.projectName')}
             onChange={(e) => setProjectName(e.target.value)}
             onBlur={(e) => renameCurrentProject(e.target.value)}
           />
@@ -161,24 +164,24 @@ export default function TopBar({
           }}
         />
 
-        <div className="topbar-history" role="group" aria-label="History">
-          <Tooltip content="Undo last action (⌘Z / Ctrl+Z)">
+        <div className="topbar-history" role="group" aria-label={t('top.history')}>
+          <Tooltip content={t('top.undoHint')}>
             <button
               type="button"
               className="button button-icon-only"
               disabled={!canUndo}
-              aria-label="Undo"
+              aria-label={t('top.undo')}
               onClick={undo}
             >
               <Undo2 size={16} aria-hidden />
             </button>
           </Tooltip>
-          <Tooltip content="Redo (⌘⇧Z / Ctrl+Shift+Z)">
+          <Tooltip content={t('top.redoHint')}>
             <button
               type="button"
               className="button button-icon-only"
               disabled={!canRedo}
-              aria-label="Redo"
+              aria-label={t('top.redo')}
               onClick={redo}
             >
               <Redo2 size={16} aria-hidden />
@@ -191,8 +194,8 @@ export default function TopBar({
             <Tooltip
               content={
                 mapImage
-                  ? 'Replace the current map image'
-                  : 'Upload a map image — PNG, JPG, or drop a file on the canvas'
+                  ? t('top.replaceImageHint')
+                  : t('top.importImageHint')
               }
             >
               <button
@@ -202,15 +205,15 @@ export default function TopBar({
               >
                 <Image size={16} aria-hidden />
                 <span className="button-label">
-                  {mapImage ? 'Edit Image' : 'Import Image'}
+                  {mapImage ? t('action.editImage') : t('action.importImage')}
                 </span>
               </button>
             </Tooltip>
             <Tooltip
               content={
                 hasTracks
-                  ? 'Change track colours, width, or alignment'
-                  : 'Import a GPX file to overlay a route on the map'
+                  ? t('top.editGpxHint')
+                  : t('top.importGpxHint')
               }
             >
               <button
@@ -223,41 +226,41 @@ export default function TopBar({
               >
                 <Route size={16} aria-hidden />
                 <span className="button-label">
-                  {hasTracks ? 'Edit GPX' : 'Import GPX'}
+                  {hasTracks ? t('action.editGpx') : t('action.importGpx')}
                 </span>
               </button>
             </Tooltip>
-            <Tooltip content="Clear the canvas and start fresh">
+            <Tooltip content={t('top.newHint')}>
               <button type="button" className="button" onClick={handleNewProject}>
                 <FilePlus size={16} aria-hidden />
-                <span className="button-label">New</span>
+                <span className="button-label">{t('top.new')}</span>
               </button>
             </Tooltip>
-            <Tooltip content="Switch between saved projects">
+            <Tooltip content={t('top.projectsHint')}>
               <button
                 type="button"
                 className="button"
                 onClick={() => setLibraryOpen(true)}
               >
                 <Library size={16} aria-hidden />
-                <span className="button-label">Projects</span>
+                <span className="button-label">{t('top.projects')}</span>
               </button>
             </Tooltip>
-            <Tooltip content={`Open a saved project (${PROJECT_FILE_EXTENSION})`}>
+            <Tooltip content={t('top.openHint', { ext: PROJECT_FILE_EXTENSION })}>
               <button
                 type="button"
                 className="button"
                 onClick={() => projectInputRef.current?.click()}
               >
                 <FolderOpen size={16} aria-hidden />
-                <span className="button-label">Open</span>
+                <span className="button-label">{t('top.open')}</span>
               </button>
             </Tooltip>
             <Tooltip
               content={
                 canSave
-                  ? `Save your project as ${PROJECT_FILE_EXTENSION}`
-                  : 'Nothing to save yet — import a map or add annotations first'
+                  ? t('top.saveHint', { ext: PROJECT_FILE_EXTENSION })
+                  : t('top.saveDisabled')
               }
             >
               <button
@@ -267,14 +270,14 @@ export default function TopBar({
                 onClick={saveProjectFile}
               >
                 <Save size={16} aria-hidden />
-                <span className="button-label">Save</span>
+                <span className="button-label">{t('top.save')}</span>
               </button>
             </Tooltip>
             <Tooltip
               content={
                 mapImage
-                  ? 'Preview and download the map with drawings and annotations'
-                  : 'Import a map image before exporting'
+                  ? t('top.exportHint')
+                  : t('top.exportDisabled')
               }
             >
               <button
@@ -284,30 +287,30 @@ export default function TopBar({
                 onClick={() => setExportModalOpen(true)}
               >
                 <Download size={16} aria-hidden />
-                <span className="button-label">Export</span>
+                <span className="button-label">{t('action.export')}</span>
               </button>
             </Tooltip>
             {updateAvailable && (
-              <Tooltip content="Reload to use the latest version">
+              <Tooltip content={t('top.updateHint')}>
                 <button
                   type="button"
                   className="button button-primary"
                   onClick={applyUpdate}
                 >
                   <RefreshCw size={16} aria-hidden />
-                  <span className="button-label">Update App</span>
+                  <span className="button-label">{t('top.updateApp')}</span>
                 </button>
               </Tooltip>
             )}
             {canInstall && (
-              <Tooltip content="Install O-Analysis as a desktop app">
+              <Tooltip content={t('top.installHint')}>
                 <button
                   type="button"
                   className="button"
                   onClick={() => void install()}
                 >
                   <HardDriveDownload size={16} aria-hidden />
-                  <span className="button-label">Install App</span>
+                  <span className="button-label">{t('top.installApp')}</span>
                 </button>
               </Tooltip>
             )}

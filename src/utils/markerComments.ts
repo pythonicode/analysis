@@ -1,3 +1,5 @@
+import { wrapText } from './textWrap'
+
 export const COMMENT_FONT_SIZE = 8
 export const COMMENT_MAX_TEXT_WIDTH = 68
 export const COMMENT_PADDING = 3
@@ -77,32 +79,6 @@ export function rightEdgeFromTextWidth(
 ): number {
   const scale = textScale > 0 ? textScale : 1
   return ((clampCommentBoxWidth(textWidth) + COMMENT_PADDING * 2) / 2) * scale
-}
-
-function wrapText(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  maxWidth: number,
-): string[] {
-  const lines: string[] = []
-  for (const paragraph of text.split('\n')) {
-    const words = paragraph.split(/\s+/).filter(Boolean)
-    if (words.length === 0) {
-      lines.push('')
-      continue
-    }
-    let line = words[0]
-    for (const word of words.slice(1)) {
-      if (ctx.measureText(`${line} ${word}`).width <= maxWidth) {
-        line = `${line} ${word}`
-      } else {
-        lines.push(line)
-        line = word
-      }
-    }
-    lines.push(line)
-  }
-  return lines
 }
 
 export interface CommentBoxMetrics {

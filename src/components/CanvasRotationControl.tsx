@@ -2,6 +2,7 @@ import { RotateCcw } from 'lucide-react'
 import { useAppStore } from '../store'
 import { stageRef } from '../stageRef'
 import { clampRotation, rotateViewportKeepingCenter } from '../utils/viewport'
+import { useT } from '../i18n'
 
 const MIN_ROTATION = -360
 const MAX_ROTATION = 360
@@ -11,6 +12,7 @@ export default function CanvasRotationControl({
 }: {
   compact?: boolean
 }) {
+  const t = useT()
   const mapImage = useAppStore((s) => s.mapImage)
   const rotation = useAppStore((s) => s.viewport.rotation)
   const setViewport = useAppStore((s) => s.setViewport)
@@ -48,10 +50,10 @@ export default function CanvasRotationControl({
     <div
       className={`canvas-rotation-control${compact ? ' canvas-rotation-control-compact' : ''}`}
       role="group"
-      aria-label="Canvas rotation"
+      aria-label={t('rotation.group')}
     >
       <label className="canvas-rotation-label" htmlFor="canvas-rotation">
-        {compact ? 'Rotation' : 'Rotate'}
+        {compact ? t('rotation.label') : t('rotation.rotate')}
       </label>
       <input
         id="canvas-rotation"
@@ -64,15 +66,15 @@ export default function CanvasRotationControl({
         aria-valuemin={MIN_ROTATION}
         aria-valuemax={MAX_ROTATION}
         aria-valuenow={rotation}
-        aria-valuetext={`${rotation} degrees`}
+        aria-valuetext={t('rotation.degrees', { degrees: rotation })}
         onChange={(e) => applyRotation(Number(e.target.value))}
       />
       <span className="canvas-rotation-value">{rotation}°</span>
       <button
         type="button"
         className="canvas-rotation-reset"
-        aria-label="Reset rotation to 0 degrees"
-        title="Reset rotation"
+        aria-label={t('rotation.resetAria')}
+        title={t('rotation.reset')}
         onClick={() => applyRotation(0)}
       >
         <RotateCcw size={14} aria-hidden />

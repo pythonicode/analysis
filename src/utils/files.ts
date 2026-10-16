@@ -2,6 +2,7 @@ import { useAppStore } from '../store'
 import { AnalyticsEvents, trackEvent } from '../analytics'
 import { buildTrack, parseGpx } from './gpx'
 import { isProjectFile, openProjectFile } from './project'
+import { t } from '../i18n'
 
 export const MAX_IMAGE_BYTES = 20 * 1024 * 1024
 
@@ -15,7 +16,7 @@ function loadImageElement(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new window.Image()
     img.onload = () => resolve(img)
-    img.onerror = () => reject(new Error('Could not decode the image file'))
+    img.onerror = () => reject(new Error(t('error.decodeImage')))
     img.src = src
   })
 }
@@ -24,7 +25,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(reader.result as string)
-    reader.onerror = () => reject(new Error('Could not read the image file'))
+    reader.onerror = () => reject(new Error(t('error.readImage')))
     reader.readAsDataURL(file)
   })
 }
@@ -38,12 +39,12 @@ export async function importImageFile(
   setImportError(null)
 
   if (!file.type.startsWith('image/')) {
-    setImportError(`"${file.name}" is not an image file`)
+    setImportError(t('error.notImage', { name: file.name }))
     return
   }
   if (file.size > MAX_IMAGE_BYTES) {
     setImportError(
-      `Image is too large (${formatMb(file.size)}). Maximum size is 20MB.`,
+      t('error.imageTooLarge', { size: formatMb(file.size) }),
     )
     return
   }
@@ -63,7 +64,7 @@ export async function importImageFile(
       source,
     })
   } catch (error) {
-    setImportError(error instanceof Error ? error.message : 'Image import failed')
+    setImportError(error instanceof Error ? error.message : t('error.imageImport'))
   }
 }
 
@@ -90,7 +91,7 @@ export async function importGpxFile(
     })
   } catch (error) {
     store.setImportError(
-      error instanceof Error ? error.message : 'GPX import failed',
+      error instanceof Error ? error.message : t('error.gpxImport'),
     )
   }
 }
@@ -107,7 +108,7 @@ export async function importDroppedFiles(files: FileList): Promise<void> {
     } else {
       useAppStore
         .getState()
-        .setImportError(`Unsupported file type: "${file.name}"`)
+        .setImportError(t('error.unsupportedFile', { name: file.name }))
     }
   }
 }

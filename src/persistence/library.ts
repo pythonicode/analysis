@@ -7,6 +7,7 @@ import {
   del as delLegacy,
   get as getLegacy,
 } from 'idb-keyval'
+import { t } from '../i18n'
 import type {
   Annotation,
   DrawnPath,
@@ -15,7 +16,13 @@ import type {
   MarkerDisplayMode,
 } from '../types'
 
+/** Stored name for a project that has not been named. Shown translated via projectDisplayName(). */
 export const DEFAULT_PROJECT_NAME = 'Untitled project'
+
+/** The name to show on screen: the default name is translated, anything the user typed is shown as-is. */
+export function projectDisplayName(name: string): string {
+  return name === DEFAULT_PROJECT_NAME ? t('project.untitled') : name
+}
 
 /** Name for a project that has none: the map's name, or the default. */
 export function defaultProjectName(mapImageName: string | null | undefined): string {

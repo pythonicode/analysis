@@ -1,7 +1,9 @@
 import { RefreshCw, X } from 'lucide-react'
 import { usePwaUpdate } from '../hooks/usePwaUpdate'
+import { useT } from '../i18n'
 
 export default function PwaUpdateBanner() {
+  const t = useT()
   const { updateAvailable, applyUpdate, dismissUpdate } = usePwaUpdate()
 
   if (!updateAvailable) return null
@@ -9,18 +11,18 @@ export default function PwaUpdateBanner() {
   return (
     <div className="pwa-update-banner" role="alert">
       <RefreshCw size={16} aria-hidden />
-      <span>A new version of O-Analysis is available.</span>
+      <span>{t('pwa.updateAvailable')}</span>
       <button
         type="button"
         className="button button-primary pwa-update-banner-action"
         onClick={applyUpdate}
       >
-        Update now
+        {t('pwa.updateNow')}
       </button>
       <button
         type="button"
         className="pwa-update-banner-dismiss"
-        aria-label="Dismiss update notice"
+        aria-label={t('pwa.dismissUpdate')}
         onClick={dismissUpdate}
       >
         <X size={14} aria-hidden />

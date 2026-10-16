@@ -1,4 +1,5 @@
 import { useAppStore, type ProjectData } from './store'
+import { t } from './i18n'
 import {
   DEFAULT_PROJECT_NAME,
   defaultProjectName,
@@ -55,7 +56,7 @@ export async function openLibraryProject(id: string): Promise<void> {
   if (id === useAppStore.getState().projectId) return
   await flushProjectSaves()
   const state = await readProjectState(id)
-  if (!state) throw new Error('That project could not be found')
+  if (!state) throw new Error(t('error.projectNotFound'))
   adoptProjectState(state)
   await setActiveProjectId(id)
   useAppStore.getState().loadProject(state)

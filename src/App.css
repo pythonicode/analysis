@@ -396,18 +396,18 @@
 
 .app-main {
   display: grid;
-  grid-template-columns: 56px 1fr 300px;
+  grid-template-columns: var(--palette-width) 1fr 300px;
   flex: 1;
   min-height: 0;
   overflow: hidden;
 }
 
 .app-shell[data-layout='desktop'] .app-main {
-  grid-template-columns: 56px 1fr 300px;
+  grid-template-columns: var(--palette-width) 1fr 300px;
 }
 
 .app-shell[data-layout='compact'] .app-main {
-  grid-template-columns: 56px 1fr;
+  grid-template-columns: var(--palette-width) 1fr;
 }
 
 .app-shell[data-layout='touch'] .app-main {
@@ -2600,4 +2600,24 @@ a.statusbar-legal-link {
 .statusbar .canvas-rotation-control-compact .canvas-rotation-slider {
   min-width: 0;
   flex: 1;
+}
+
+/* The palette keeps a fixed width so the canvas never sits underneath it.
+   Longer translated labels are truncated with an ellipsis (full text is in the tooltip). */
+.tool-palette {
+  box-sizing: border-box;
+  flex: 0 0 var(--palette-width);
+  width: var(--palette-width);
+  min-width: 0;
+  max-width: var(--palette-width);
+  overflow: hidden;
+}
+
+.tool-palette .tool-label {
+  display: block;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
 }

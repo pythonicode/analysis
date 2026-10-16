@@ -5,6 +5,7 @@ import { useEscapeKey } from '../hooks/useEscapeKey'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import {
   listProjectMetas,
+  projectDisplayName,
   readThumbnail,
   type ProjectMeta,
 } from '../persistence/library'
@@ -16,6 +17,7 @@ import {
   renameLibraryProject,
 } from '../projectLibrary'
 import { useSaveState } from '../saveStatus'
+import { getLocale, useT } from '../i18n'
 
 export default function ProjectLibraryModal({
   layoutMode,
@@ -24,6 +26,7 @@ export default function ProjectLibraryModal({
   layoutMode: LayoutMode
   onClose: () => void
 }) {
+  const t = useT()
   const currentId = useAppStore((s) => s.projectId)
   const saveState = useSaveState()
   const [metas, setMetas] = useState<ProjectMeta[] | null>(null)
@@ -80,7 +83,7 @@ export default function ProjectLibraryModal({
     try {
       await action()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setError(err instanceof Error ? err.message : t('common.errorGeneric'))
     } finally {
       setBusy(false)
     }
@@ -131,11 +134,11 @@ export default function ProjectLibraryModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
-          <h2 id="project-library-title">Projects</h2>
+          <h2 id="project-library-title">{t('library.title')}</h2>
           <button
             type="button"
             className="modal-close"
-            aria-label="Close"
+            aria-label={t('common.close')}
             onClick={onClose}
           >
             <X size={16} aria-hidden />
@@ -149,11 +152,11 @@ export default function ProjectLibraryModal({
             </p>
           )}
 
-          {metas === null && <p className="project-library-empty">Loading…</p>}
+          {metas === null && <p className="project-library-empty">{t('common.loading')}</p>}
 
           {metas?.length === 0 && (
             <p className="project-library-empty">
-              No saved projects yet. Import a map to start one.
+              {t('library.empty')}
             </p>
           )}
 
@@ -181,7 +184,7 @@ export default function ProjectLibraryModal({
                           autoFocus
                           value={draftName}
                           maxLength={80}
-                          aria-label="Project name"
+                          aria-label={t('top.projectName')}
                           onChange={(e) => setDraftName(e.target.value)}
                           onBlur={() => void commitRename(meta)}
                           onKeyDown={(e) => {
@@ -206,16 +209,18 @@ export default function ProjectLibraryModal({
                         </span>
                         <span className="project-library-text">
                           <span className="project-library-name">
-                            {meta.name}
+                            {projectDisplayName(meta.name)}
                             {isCurrent && (
-                              <span className="project-library-badge">Open</span>
+                              <span className="project-library-badge">{t('library.open')}</span>
                             )}
                           </span>
                           <span className="project-library-meta">
-                            {meta.mapName ?? 'No map yet'} · Updated{' '}
-                            {new Date(meta.updatedAt).toLocaleString([], {
-                              dateStyle: 'medium',
-                              timeStyle: 'short',
+                            {t('library.updated', {
+                              map: meta.mapName ?? t('library.noMap'),
+                              date: new Date(meta.updatedAt).toLocaleString(getLocale(), {
+                                dateStyle: 'medium',
+                                timeStyle: 'short',
+                              }),
                             })}
                           </span>
                         </span>
@@ -230,7 +235,7 @@ export default function ProjectLibraryModal({
                             className="button"
                             onClick={() => setConfirmDeleteId(null)}
                           >
-                            Cancel
+                            {t('common.cancel')}
                           </button>
                           <button
                             type="button"
@@ -238,7 +243,7 @@ export default function ProjectLibraryModal({
                             disabled={busy}
                             onClick={() => remove(meta)}
                           >
-                            Delete
+                            {t('common.delete')}
                           </button>
                         </>
                       ) : (
@@ -246,8 +251,8 @@ export default function ProjectLibraryModal({
                           <button
                             type="button"
                             className="button button-icon-only"
-                            aria-label={`Rename ${meta.name}`}
-                            title="Rename"
+                            aria-label={t('library.renameAria', { name: meta.name })}
+                            title={t('common.rename')}
                             disabled={busy || isEditing}
                             onClick={() => {
                               setEditingId(meta.id)
@@ -259,8 +264,8 @@ export default function ProjectLibraryModal({
                           <button
                             type="button"
                             className="button button-icon-only"
-                            aria-label={`Delete ${meta.name}`}
-                            title="Delete"
+                            aria-label={t('library.deleteAria', { name: meta.name })}
+                            title={t('common.delete')}
                             disabled={busy}
                             onClick={() => remove(meta)}
                           >
@@ -278,7 +283,7 @@ export default function ProjectLibraryModal({
 
         <div className="modal-actions">
           <button type="button" className="button" onClick={onClose}>
-            Close
+            {t('common.close')}
           </button>
           <button
             type="button"
@@ -287,7 +292,7 @@ export default function ProjectLibraryModal({
             onClick={() => void startNew()}
           >
             <FilePlus size={14} aria-hidden />
-            New project
+            {t('action.newProject')}
           </button>
         </div>
       </div>

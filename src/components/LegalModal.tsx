@@ -1,6 +1,7 @@
 import { X } from 'lucide-react'
 import { LEGAL_DOCUMENTS, type LegalDocumentId } from '../content/legal'
 import Portal from './Portal'
+import { useT } from '../i18n'
 import { useEscapeKey } from '../hooks/useEscapeKey'
 
 export default function LegalModal({
@@ -10,6 +11,7 @@ export default function LegalModal({
   documentId: LegalDocumentId
   onClose: () => void
 }) {
+  const t = useT()
   const doc = LEGAL_DOCUMENTS[documentId]
 
   useEscapeKey(onClose)
@@ -29,14 +31,15 @@ export default function LegalModal({
             <button
               type="button"
               className="modal-close"
-              aria-label="Close"
+              aria-label={t('common.close')}
               onClick={onClose}
             >
               <X size={16} aria-hidden />
             </button>
           </div>
           <div className="modal-body legal-body">
-            <p className="legal-updated">Last updated: {doc.updated}</p>
+            <p className="legal-updated">{t('legal.lastUpdated', { date: doc.updated })}</p>
+            <p className="legal-binding">{t('legal.binding')}</p>
             {doc.sections.map((section) => (
               <section key={section.heading} className="legal-section">
                 <h3>{section.heading}</h3>
