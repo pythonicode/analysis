@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import {
   Download,
   FilePlus,
@@ -40,7 +41,7 @@ export function buildOverflowActions(opts: {
   return [
     {
       id: 'update',
-      label: 'Update App',
+      label: t('action.updateApp'),
       icon: <RefreshCw size={16} aria-hidden />,
       onClick: opts.onUpdate,
       primary: true,
@@ -48,44 +49,44 @@ export function buildOverflowActions(opts: {
     },
     {
       id: 'import-image',
-      label: opts.mapImage ? 'Edit Image' : 'Import Image',
+      label: opts.mapImage ? t('action.editImage') : t('action.importImage'),
       icon: <Image size={16} aria-hidden />,
       onClick: opts.onImportImage,
     },
     {
       id: 'import-gpx',
-      label: opts.hasTracks ? 'Edit GPX' : 'Import GPX',
+      label: opts.hasTracks ? t('action.editGpx') : t('action.importGpx'),
       icon: <Route size={16} aria-hidden />,
       onClick: opts.hasTracks ? opts.onEditGpx : opts.onImportGpx,
     },
     {
       id: 'new',
-      label: 'New Project',
+      label: t('action.newProject'),
       icon: <FilePlus size={16} aria-hidden />,
       onClick: opts.onNew,
     },
     {
       id: 'projects',
-      label: 'Projects',
+      label: t('action.projects'),
       icon: <Library size={16} aria-hidden />,
       onClick: opts.onProjects,
     },
     {
       id: 'open',
-      label: 'Open Project',
+      label: t('action.openProject'),
       icon: <FolderOpen size={16} aria-hidden />,
       onClick: opts.onOpen,
     },
     {
       id: 'save',
-      label: 'Save Project',
+      label: t('action.saveProject'),
       icon: <Save size={16} aria-hidden />,
       onClick: opts.onSave,
       disabled: !opts.canSave,
     },
     {
       id: 'export',
-      label: 'Export',
+      label: t('action.export'),
       icon: <Download size={16} aria-hidden />,
       onClick: opts.onExport,
       disabled: !opts.mapImage,
@@ -93,7 +94,7 @@ export function buildOverflowActions(opts: {
     },
     {
       id: 'install',
-      label: 'Install App',
+      label: t('action.installApp'),
       icon: <HardDriveDownload size={16} aria-hidden />,
       onClick: opts.onInstall,
       hidden: !opts.canInstall,

@@ -2601,3 +2601,15 @@ a.statusbar-legal-link {
   min-width: 0;
   flex: 1;
 }
+
+/* Longer translated labels (e.g. Portuguese "Opacidade", Finnish "Peittävyys") must not overflow the palette */
+.tool-palette {
+  min-width: 86px;
+}
+
+.tool-palette .tool-label {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+  line-height: 1.2;
+}

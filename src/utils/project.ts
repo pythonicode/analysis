@@ -1,6 +1,7 @@
 import { useAppStore, type ProjectData } from '../store'
 import { AnalyticsEvents, trackEvent } from '../analytics'
 import { importProject } from '../projectLibrary'
+import { t } from '../i18n'
 import { PROJECT_FORMAT, PROJECT_VERSION, validateProjectFile, type ProjectFile } from './projectValidation'
 
 export const PROJECT_FILE_EXTENSION = '.anal'
@@ -31,7 +32,7 @@ export function saveProjectFile(): void {
     rotation: useAppStore.getState().viewport.rotation,
   }
   if (!hasProjectContent(project)) {
-    setImportError('Nothing to save — import a map or add content first')
+    setImportError(t('error.nothingToSave'))
     return
   }
 
@@ -68,14 +69,14 @@ export async function openSampleProject(): Promise<void> {
   try {
     const response = await fetch('/sample.anal')
     if (!response.ok) {
-      throw new Error('Sample project not found')
+      throw new Error(t('error.sampleNotFound'))
     }
     const parsed = validateProjectFile(JSON.parse(await response.text()))
     await importProject(parsed, parsed.name)
     trackEvent(AnalyticsEvents.OPEN_SAMPLE_PROJECT)
   } catch (error) {
     setImportError(
-      error instanceof Error ? error.message : 'Failed to load sample project',
+      error instanceof Error ? error.message : t('error.loadSample'),
     )
   }
 }
@@ -89,7 +90,7 @@ export async function openProjectFile(
   setImportError(null)
 
   if (!isProjectFile(file)) {
-    setImportError(`Not a project file — expected ${PROJECT_FILE_EXTENSION}`)
+    setImportError(t('error.notProjectFile', { ext: PROJECT_FILE_EXTENSION }))
     return
   }
 
@@ -105,7 +106,7 @@ export async function openProjectFile(
     })
   } catch (error) {
     setImportError(
-      error instanceof Error ? error.message : 'Failed to open project file',
+      error instanceof Error ? error.message : t('error.openProject'),
     )
   }
 }

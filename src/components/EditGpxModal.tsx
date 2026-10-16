@@ -18,6 +18,7 @@ import type { LayoutMode } from '../hooks/useLayoutMode'
 import Tooltip from './Tooltip'
 import GpxCropPanel from './GpxCropPanel'
 import DualRangeSlider from './DualRangeSlider'
+import { useT } from '../i18n'
 
 const PACE_SLIDER_MIN = 2
 const PACE_SLIDER_MAX = 20
@@ -103,6 +104,7 @@ export default function EditGpxModal({
   onClose: () => void
   onUploadNew: () => void
 }) {
+  const t = useT()
   const tracks = useAppStore((s) => s.tracks)
   const mapImage = useAppStore((s) => s.mapImage)
   const updateTrack = useAppStore((s) => s.updateTrack)
@@ -129,7 +131,7 @@ export default function EditGpxModal({
     setActiveTool('gpx')
     onClose()
     if (isTouch) {
-      setToastMessage('Tap the track to add pins. Long-press a pin to delete.')
+      setToastMessage(t('gpx.toastTapHint'))
     }
   }
 
@@ -160,11 +162,11 @@ export default function EditGpxModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
-          <h2 id="gpx-modal-title">GPX tracks</h2>
+          <h2 id="gpx-modal-title">{t('gpx.title')}</h2>
           <button
             type="button"
             className="modal-close"
-            aria-label="Close"
+            aria-label={t('common.close')}
             onClick={onClose}
           >
             <X size={16} aria-hidden />
@@ -330,7 +332,7 @@ export default function EditGpxModal({
                           onClick={() => toggleCrop(track.id)}
                         >
                           <Scissors size={14} aria-hidden />
-                          Crop
+                          {t('gpx.crop')}
                         </button>
                         <button
                           type="button"
@@ -338,7 +340,7 @@ export default function EditGpxModal({
                           onClick={adjustTrack}
                         >
                           <Anchor size={14} aria-hidden />
-                          Adjust on map
+                          {t('gpx.adjustMap')}
                         </button>
                         <button
                           type="button"
@@ -346,37 +348,37 @@ export default function EditGpxModal({
                           onClick={() => handleRemove(track.id)}
                         >
                           <Trash2 size={14} aria-hidden />
-                          Remove
+                          {t('gpx.remove')}
                         </button>
                       </>
                     ) : (
                       <>
-                        <Tooltip content="Crop start and end of track">
+                        <Tooltip content={t('gpx.tipCrop')}>
                           <button
                             type="button"
                             className={`button button-icon-only${isCropping ? ' active' : ''}`}
-                            aria-label="Crop track"
+                            aria-label={t('gpx.cropAria')}
                             aria-pressed={isCropping}
                             onClick={() => toggleCrop(track.id)}
                           >
                             <Scissors size={14} aria-hidden />
                           </button>
                         </Tooltip>
-                        <Tooltip content="Switch to map and drag anchor pins">
+                        <Tooltip content={t('gpx.tipAdjust')}>
                           <button
                             type="button"
                             className="button button-icon-only"
-                            aria-label="Adjust on map"
+                            aria-label={t('gpx.adjustMap')}
                             onClick={adjustTrack}
                           >
                             <Anchor size={14} aria-hidden />
                           </button>
                         </Tooltip>
-                        <Tooltip content="Remove this track from the project">
+                        <Tooltip content={t('gpx.tipRemove')}>
                           <button
                             type="button"
                             className="button button-icon-only modal-track-remove"
-                            aria-label="Remove track"
+                            aria-label={t('gpx.removeAria')}
                             onClick={() => handleRemove(track.id)}
                           >
                             <Trash2 size={14} aria-hidden />
@@ -393,7 +395,7 @@ export default function EditGpxModal({
                       <div
                         className="gpx-line-style-toggle"
                         role="group"
-                        aria-label="Line style"
+                        aria-label={t('gpx.lineStyleAria')}
                       >
                         <button
                           type="button"
@@ -403,7 +405,7 @@ export default function EditGpxModal({
                           aria-pressed={!paceMode && !hrMode}
                           onClick={() => setLineStyle('solid')}
                         >
-                          Solid
+                          {t('gpx.solid')}
                         </button>
                         {timing && (
                           <button
@@ -412,7 +414,7 @@ export default function EditGpxModal({
                             aria-pressed={paceMode}
                             onClick={() => setLineStyle('pace')}
                           >
-                            Pace
+                            {t('gpx.pace')}
                           </button>
                         )}
                         {hasHr && (
@@ -422,7 +424,7 @@ export default function EditGpxModal({
                             aria-pressed={hrMode}
                             onClick={() => setLineStyle('hr')}
                           >
-                            HR
+                            {t('gpx.hr')}
                           </button>
                         )}
                       </div>
@@ -434,19 +436,19 @@ export default function EditGpxModal({
                           type="button"
                           className={`swatch${track.color === color ? ' active' : ''}`}
                           style={{ background: color }}
-                          aria-label={`Track colour ${color}`}
+                          aria-label={t('gpx.trackColour', { color })}
                           onClick={() => updateTrack(track.id, { color })}
                         />
                       ))}
                     </div>
                     <label className="modal-track-slider">
-                      <span className="modal-track-slider-label">Width</span>
+                      <span className="modal-track-slider-label">{t('gpx.width')}</span>
                       <input
                         type="range"
                         min={minWidth}
                         max={maxWidth}
                         value={width}
-                        aria-label="Stroke width"
+                        aria-label={t('gpx.strokeWidth')}
                         onChange={(e) =>
                           updateTrack(
                             track.id,
@@ -459,13 +461,13 @@ export default function EditGpxModal({
                     </label>
                     <div className="modal-track-sliders-row">
                       <label className="modal-track-slider">
-                        <span className="modal-track-slider-label">Opac</span>
+                        <span className="modal-track-slider-label">{t('gpx.opacityShort')}</span>
                         <input
                           type="range"
                           min={10}
                           max={100}
                           value={opacity}
-                          aria-label="Opacity"
+                          aria-label={t('gpx.opacity')}
                           onChange={(e) =>
                             updateTrack(
                               track.id,
@@ -481,7 +483,7 @@ export default function EditGpxModal({
                           <i
                             className="modal-track-pace-swatch"
                             style={{ background: '#16a34a' }}
-                            title="Fast (green)"
+                            title={t('gpx.fast')}
                             aria-hidden
                           />
                           <ScaleValueInput
@@ -513,7 +515,7 @@ export default function EditGpxModal({
                           <i
                             className="modal-track-pace-swatch"
                             style={{ background: '#dc2626' }}
-                            title="Slow (red)"
+                            title={t('gpx.slow')}
                             aria-hidden
                           />
                         </div>
@@ -523,7 +525,7 @@ export default function EditGpxModal({
                           <i
                             className="modal-track-pace-swatch"
                             style={{ background: HR_LOW_COLOR }}
-                            title="Low HR (dark red)"
+                            title={t('gpx.lowHr')}
                             aria-hidden
                           />
                           <ScaleValueInput
@@ -555,7 +557,7 @@ export default function EditGpxModal({
                           <i
                             className="modal-track-pace-swatch"
                             style={{ background: HR_HIGH_COLOR }}
-                            title="High HR (bright red)"
+                            title={t('gpx.highHr')}
                             aria-hidden
                           />
                         </div>
@@ -578,7 +580,7 @@ export default function EditGpxModal({
             )
           })}
           {tracks.length === 0 && (
-            <li className="modal-empty">No GPX tracks loaded.</li>
+            <li className="modal-empty">{t('gpx.empty')}</li>
           )}
         </ul>
 
@@ -592,14 +594,14 @@ export default function EditGpxModal({
             }}
           >
             <Upload size={14} aria-hidden />
-            Upload
+            {t('gpx.upload')}
           </button>
           <button
             type="button"
             className="button button-primary"
             onClick={onClose}
           >
-            Confirm
+            {t('gpx.confirm')}
           </button>
         </div>
       </div>

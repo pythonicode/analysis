@@ -2,6 +2,9 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+/** Vite names each language chunk after its locale code, e.g. sv-*.js or pt-BR-*.js */
+const LOCALE_CHUNK_PREFIX = '{sv,nb,fi,da,es,fr,pt-BR,pt-PT}-'
+
 // https://vite.dev/config/
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
@@ -61,6 +64,15 @@ export default defineConfig(({ command, mode }) => {
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Language packs download on first use rather than on install (see runtimeCaching)
+        globIgnores: [`**/${LOCALE_CHUNK_PREFIX}*.js`],
+        runtimeCaching: [
+          {
+            urlPattern: new RegExp(`/assets/${LOCALE_CHUNK_PREFIX}[^/]*\\.js$`),
+            handler: 'CacheFirst',
+            options: { cacheName: 'language-packs' },
+          },
+        ],
       },
     }),
   ],

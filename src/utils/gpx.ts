@@ -4,6 +4,7 @@ import {
   defaultPaceScale,
   hasTrackTiming,
 } from './gpxMetrics'
+import { t } from '../i18n'
 
 interface ParsedGpx {
   name: string
@@ -59,7 +60,7 @@ function parseHeartRateBpm(node: Element): number | undefined {
 export function parseGpx(xml: string, fileName: string): ParsedGpx {
   const doc = new DOMParser().parseFromString(xml, 'application/xml')
   if (doc.querySelector('parsererror')) {
-    throw new Error('Not a valid GPX file')
+    throw new Error(t('error.notGpx'))
   }
 
   let pointNodes = Array.from(doc.querySelectorAll('trkpt'))
@@ -83,7 +84,7 @@ export function parseGpx(xml: string, fileName: string): ParsedGpx {
   }
 
   if (projected.length < 2) {
-    throw new Error('GPX file contains no usable track points')
+    throw new Error(t('error.noGpxPoints'))
   }
 
   let minX = Infinity

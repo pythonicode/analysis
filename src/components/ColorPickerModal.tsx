@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { X } from 'lucide-react'
+import { useT } from '../i18n'
 
 function clampByte(n: number): number {
   return Math.min(255, Math.max(0, Math.round(n)))
@@ -40,6 +41,7 @@ export default function ColorPickerModal({
   onApply: (color: string) => void
   onClose: () => void
 }) {
+  const t = useT()
   const parsed = hexToRgb(initialColor) ?? { r: 8, g: 6, b: 13 }
   const [r, setR] = useState(parsed.r)
   const [g, setG] = useState(parsed.g)
@@ -91,11 +93,11 @@ export default function ColorPickerModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
-          <h2 id="color-picker-modal-title">Custom color</h2>
+          <h2 id="color-picker-modal-title">{t('color.custom')}</h2>
           <button
             type="button"
             className="modal-close"
-            aria-label="Close"
+            aria-label={t('common.close')}
             onClick={onClose}
           >
             <X size={16} aria-hidden />
@@ -126,7 +128,7 @@ export default function ColorPickerModal({
                   value={value}
                   style={{ accentColor: accent }}
                   onChange={(e) => updateChannel(key, Number(e.target.value))}
-                  aria-label={`${label} channel`}
+                  aria-label={t('color.channel', { channel: label })}
                 />
                 <input
                   type="number"
@@ -135,20 +137,20 @@ export default function ColorPickerModal({
                   max={255}
                   value={value}
                   onChange={(e) => updateChannel(key, Number(e.target.value))}
-                  aria-label={`${label} value`}
+                  aria-label={t('color.channelValue', { channel: label })}
                 />
               </label>
             ))}
           </div>
 
           <label className="color-picker-hex">
-            <span className="color-picker-channel-label">Hex</span>
+            <span className="color-picker-channel-label">{t('color.hex')}</span>
             <input
               type="text"
               value={hexInput}
               spellCheck={false}
               onChange={(e) => applyHexInput(e.target.value)}
-              aria-label="Hex color"
+              aria-label={t('color.hexAria')}
             />
           </label>
         </div>
@@ -156,14 +158,14 @@ export default function ColorPickerModal({
         <div className="modal-actions modal-actions-split">
           <div className="modal-actions-group">
             <button type="button" className="button" onClick={onClose}>
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="button"
               className="button button-primary"
               onClick={handleApply}
             >
-              Apply
+              {t('common.apply')}
             </button>
           </div>
         </div>

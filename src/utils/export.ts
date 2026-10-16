@@ -1,8 +1,10 @@
 import { stageRef } from '../stageRef'
+import { t } from '../i18n'
 import { contentGroupRef } from '../contentGroupRef'
 import { useAppStore } from '../store'
 import { AnalyticsEvents, trackEvent } from '../analytics'
 import { exportScaleFor } from './exportScale'
+import { wrapText } from './textWrap'
 import { markerLabel } from './labels'
 import { drawMapMarkers } from './exportMarkers'
 import type { Annotation } from '../types'
@@ -18,7 +20,7 @@ let markersSuppressed = false
 /** Throws when the browser could not encode the canvas (e.g. it exceeded a canvas limit). */
 function assertEncodedPng(url: string): string {
   if (!url.startsWith('data:image/png') || url.length < 64) {
-    throw new Error('This map is too large to export on this device')
+    throw new Error(t('error.exportTooLarge'))
   }
   return url
 }
@@ -32,7 +34,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new window.Image()
     img.onload = () => resolve(img)
-    img.onerror = () => reject(new Error('Failed to render export image'))
+    img.onerror = () => reject(new Error(t('error.renderExport')))
     img.src = src
   })
 }
@@ -91,32 +93,6 @@ export async function renderExportPreviews(
 }
 
 /** Splits text into lines that fit maxWidth, honouring explicit newlines. */
-function wrapText(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  maxWidth: number,
-): string[] {
-  const lines: string[] = []
-  for (const paragraph of text.split('\n')) {
-    const words = paragraph.split(/\s+/).filter(Boolean)
-    if (words.length === 0) {
-      lines.push('')
-      continue
-    }
-    let line = words[0]
-    for (const word of words.slice(1)) {
-      if (ctx.measureText(`${line} ${word}`).width <= maxWidth) {
-        line = `${line} ${word}`
-      } else {
-        lines.push(line)
-        line = word
-      }
-    }
-    lines.push(line)
-  }
-  return lines
-}
-
 interface SidebarEntry {
   annotation: Annotation
   index: number
@@ -211,7 +187,7 @@ function drawSidebar(
     if (c === 0) {
       ctx.fillStyle = '#18181b'
       ctx.font = `600 ${fontSize * 1.1}px ${font}`
-      ctx.fillText('Annotations', colX + pad, pad + fontSize)
+      ctx.fillText(t('notes.heading'), colX + pad, pad + fontSize)
     }
 
     if (c > 0) {

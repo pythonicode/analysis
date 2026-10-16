@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { t } from '../i18n'
 
 interface Props {
   children: ReactNode
@@ -29,17 +30,14 @@ export default class AppErrorBoundary extends Component<Props, State> {
       return (
         <div className="app-error-boundary" role="alert">
           <div className="app-error-boundary-card">
-            <h2>Something went wrong</h2>
-            <p>
-              O-Analysis ran into an unexpected error. Reloading the page usually
-              fixes this.
-            </p>
+            <h2>{t('error.title')}</h2>
+            <p>{t('error.body')}</p>
             <button
               type="button"
               className="app-error-boundary-reload"
               onClick={this.handleReload}
             >
-              Reload page
+              {t('error.reload')}
             </button>
           </div>
         </div>

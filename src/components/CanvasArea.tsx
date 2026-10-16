@@ -23,6 +23,7 @@ import {
 } from '../utils/viewport'
 import { getMapPointer } from '../utils/mapPointer'
 import type { Point, Viewport } from '../types'
+import { useT } from '../i18n'
 
 const ZOOM_FACTOR = 1.06
 const WHEEL_COMMIT_MS = 120
@@ -38,6 +39,7 @@ export default function CanvasArea({
 }: {
   layoutMode: LayoutMode
 }) {
+  const t = useT()
   const activeTool = useAppStore((s) => s.activeTool)
   const mapImage = useAppStore((s) => s.mapImage)
   const setViewport = useAppStore((s) => s.setViewport)
@@ -618,11 +620,9 @@ export default function CanvasArea({
         <div className="canvas-empty">
           <div className="canvas-empty-card">
             <ImagePlus size={40} aria-hidden />
-            <h2>No map loaded</h2>
+            <h2>{t('canvas.noMap')}</h2>
             <p>
-              {isTouch
-                ? 'Import a map image to get started.'
-                : 'Import a map image to get started, or drop a file here.'}
+              {isTouch ? t('canvas.importHintTouch') : t('canvas.importHintDrop')}
             </p>
             <input
               ref={mapInputRef}
@@ -643,7 +643,7 @@ export default function CanvasArea({
                 onClick={() => mapInputRef.current?.click()}
               >
                 <ImagePlus size={14} aria-hidden />
-                Import Map
+                {t('canvas.importMap')}
               </button>
               <button
                 type="button"
@@ -651,7 +651,7 @@ export default function CanvasArea({
                 disabled={loadingSample}
                 onClick={() => void handleLoadSample()}
               >
-                {loadingSample ? 'Loading sample…' : 'Open Sample Project'}
+                {loadingSample ? t('canvas.loadingSample') : t('canvas.openSample')}
               </button>
             </div>
           </div>

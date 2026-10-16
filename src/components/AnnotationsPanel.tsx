@@ -11,6 +11,7 @@ import Tooltip from './Tooltip'
 import BottomSheet from './BottomSheet'
 import SlideDrawer from './SlideDrawer'
 import AnnotationAdvertisement from './AnnotationAdvertisement'
+import { useT } from '../i18n'
 
 function AnnotationItem({
   annotation,
@@ -23,6 +24,7 @@ function AnnotationItem({
   selected: boolean
   layoutMode: LayoutMode
 }) {
+  const t = useT()
   const setSelectedId = useAppStore((s) => s.setSelectedId)
   const updateAnnotation = useAppStore((s) => s.updateAnnotation)
   const removeAnnotation = useAppStore((s) => s.removeAnnotation)
@@ -60,7 +62,7 @@ function AnnotationItem({
     <button
       type="button"
       className="annotation-delete"
-      aria-label={`Delete annotation ${markerLabel(index)}`}
+      aria-label={t('notes.deleteAria', { label: markerLabel(index) })}
       onClick={(e) => {
         e.stopPropagation()
         removeAnnotation(annotation.id)
@@ -87,7 +89,7 @@ function AnnotationItem({
       {layoutMode === 'touch' ? (
         markerBadge
       ) : (
-        <Tooltip content="Click to center on the map" side="left">
+        <Tooltip content={t('notes.centerHint')} side="left">
           {markerBadge}
         </Tooltip>
       )}
@@ -96,7 +98,7 @@ function AnnotationItem({
           <textarea
             ref={commentInputRef}
             className="annotation-comment-input"
-            placeholder="Add a comment…"
+            placeholder={t('notes.commentPlaceholder')}
             rows={1}
             value={annotation.comment}
             onClick={(e) => e.stopPropagation()}
@@ -108,7 +110,7 @@ function AnnotationItem({
           {layoutMode === 'touch' ? (
             deleteButton
           ) : (
-            <Tooltip content="Remove this marker">{deleteButton}</Tooltip>
+            <Tooltip content={t('notes.removeHint')}>{deleteButton}</Tooltip>
           )}
         </div>
       </div>
@@ -117,6 +119,7 @@ function AnnotationItem({
 }
 
 function MarkerDisplayToggle() {
+  const t = useT()
   const markerDisplayMode = useAppStore((s) => s.markerDisplayMode)
   const setMarkerDisplayMode = useAppStore((s) => s.setMarkerDisplayMode)
 
@@ -127,7 +130,7 @@ function MarkerDisplayToggle() {
       aria-pressed={markerDisplayMode === 'labels'}
       onClick={() => setMarkerDisplayMode('labels')}
     >
-      Labels
+      {t('notes.labels')}
     </button>
   )
 
@@ -138,7 +141,7 @@ function MarkerDisplayToggle() {
       aria-pressed={markerDisplayMode === 'comments'}
       onClick={() => setMarkerDisplayMode('comments')}
     >
-      Comments
+      {t('notes.comments')}
     </button>
   )
 
@@ -146,13 +149,13 @@ function MarkerDisplayToggle() {
     <div
       className="marker-display-toggle"
       role="group"
-      aria-label="Map marker display"
+      aria-label={t('notes.displayAria')}
     >
-      <Tooltip content="Show letter labels on map markers" side="bottom">
+      <Tooltip content={t('notes.labelsHint')} side="bottom">
         {labelsButton}
       </Tooltip>
       <Tooltip
-        content="Show inline comments on the map. Drag the right edge of a selected comment to change its width."
+        content={t('notes.commentsHint')}
         side="bottom"
       >
         {commentsButton}
@@ -166,6 +169,7 @@ function AnnotationsContent({
 }: {
   layoutMode: LayoutMode
 }) {
+  const t = useT()
   const annotations = useAppStore((s) => s.annotations)
   const selectedId = useAppStore((s) => s.selectedId)
 
@@ -174,14 +178,14 @@ function AnnotationsContent({
       <div className="panel-header">
         <div className="panel-header-title">
           <MessageSquareText size={16} aria-hidden />
-          <h2>Annotations</h2>
+          <h2>{t('notes.heading')}</h2>
         </div>
         <MarkerDisplayToggle />
       </div>
 
       {annotations.length === 0 ? (
         <p className="panel-empty">
-          No annotations yet. Use the marker tool to add comments to the map.
+          {t('notes.empty')}
         </p>
       ) : (
         <ul className="annotation-list">
@@ -207,6 +211,7 @@ export default function AnnotationsPanel({
   variant: 'sidebar' | 'drawer' | 'sheet'
   layoutMode: LayoutMode
 }) {
+  const t = useT()
   const annotations = useAppStore((s) => s.annotations)
   const annotationsOpen = useAppStore((s) => s.annotationsOpen)
   const toggleAnnotations = useAppStore((s) => s.toggleAnnotations)
@@ -229,18 +234,18 @@ export default function AnnotationsPanel({
         <button
           type="button"
           className="annotation-toggle"
-          aria-label="Toggle annotations"
+          aria-label={t('notes.toggleAria')}
           aria-expanded={annotationsOpen}
           onClick={toggleAnnotations}
         >
           <MessageSquareText size={16} aria-hidden />
-          <span>Notes</span>
+          <span>{t('notes.toggle')}</span>
           {annotations.length > 0 && (
             <span className="annotation-toggle-badge">{annotations.length}</span>
           )}
         </button>
         <SlideDrawer
-          title="Annotations"
+          title={t('notes.heading')}
           open={annotationsOpen}
           onClose={closeAnnotations}
         >
@@ -259,7 +264,7 @@ export default function AnnotationsPanel({
 
   return (
     <BottomSheet
-      title="Annotations"
+      title={t('notes.heading')}
       onClose={closeAnnotations}
       className="bottom-sheet-full"
     >

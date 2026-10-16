@@ -8,6 +8,8 @@ import type { SaveStatus } from '../saveStatus'
 import { stageRef } from '../stageRef'
 import { useSaveState } from '../saveStatus'
 import TextSizeSlider from './TextSizeSlider'
+import LanguageSelect from './LanguageSelect'
+import { getLocale, useT } from '../i18n'
 import CanvasRotationControl from './CanvasRotationControl'
 import LegalModal from './LegalModal'
 
@@ -20,16 +22,17 @@ function SaveIndicator({
 }: {
   state: { status: SaveStatus; savedAt: number | null }
 }) {
+  const t = useT()
   if (state.status === 'idle') return null
   const label =
     state.status === 'error'
-      ? 'Autosave failed'
+      ? t('save.failed')
       : state.status === 'saved' && state.savedAt
-        ? `Saved ${new Date(state.savedAt).toLocaleTimeString([], {
+        ? t('save.saved', { time: new Date(state.savedAt).toLocaleTimeString(getLocale(), {
             hour: '2-digit',
             minute: '2-digit',
-          })}`
-        : 'Saving…'
+          }) })
+        : t('save.saving')
   return (
     <span
       className={`statusbar-save${state.status === 'error' ? ' statusbar-save-error' : ''}`}
@@ -46,6 +49,7 @@ export default function StatusBar({
 }: {
   layoutMode: LayoutMode
 }) {
+  const t = useT()
   const activeTool = useAppStore((s) => s.activeTool)
   const scale = useAppStore((s) => s.viewport.scale)
   const setViewport = useAppStore((s) => s.setViewport)
@@ -90,8 +94,8 @@ export default function StatusBar({
         className="statusbar-zoom"
         disabled={!hasMap}
         onClick={requestFitToView}
-        title="Fit the map to the screen"
-        aria-label={`Zoom ${Math.round(scale * 100)}%. Fit map to screen`}
+        title={t('status.fitHint')}
+        aria-label={t('status.fitAria', { zoom: Math.round(scale * 100) })}
       >
         <Maximize2 size={12} aria-hidden />
         <span>{Math.round(scale * 100)}%</span>
@@ -102,7 +106,7 @@ export default function StatusBar({
           <button
             type="button"
             className="statusbar-zoom-btn"
-            aria-label="Zoom out"
+            aria-label={t('status.zoomOut')}
             onClick={() => zoomBy(-1)}
           >
             <Minus size={14} aria-hidden />
@@ -110,33 +114,34 @@ export default function StatusBar({
           <button
             type="button"
             className="statusbar-zoom-btn"
-            aria-label="Zoom in"
+            aria-label={t('status.zoomIn')}
             onClick={() => zoomBy(1)}
           >
             <Plus size={14} aria-hidden />
           </button>
         </span>
       )}
-      {showTextSize && <TextSizeSlider label={layoutMode === 'compact' ? 'Text' : 'Text Size'} />}
+      {showTextSize && <TextSizeSlider label={layoutMode === 'compact' ? t('status.textSizeShort') : t('status.textSize')} />}
       {showCoords && (
         <span>
           {pointer
-            ? `X: ${Math.round(pointer.x)} Y: ${Math.round(pointer.y)}`
-            : 'X: — Y: —'}
+            ? t('status.coords', { x: Math.round(pointer.x), y: Math.round(pointer.y) })
+            : t('status.noCoords')}
         </span>
       )}
       {showToolName && (
-        <span className="statusbar-tool">Tool: {getToolLabel(activeTool)}</span>
+        <span className="statusbar-tool">{t('status.tool', { tool: getToolLabel(activeTool) })}</span>
       )}
       <SaveIndicator state={saveState} />
+      {showLegalLinks && <LanguageSelect />}
       {showLegalLinks && (
-        <nav className="statusbar-legal" aria-label="Legal">
+        <nav className="statusbar-legal" aria-label={t('status.legal')}>
           <button
             type="button"
             className="statusbar-legal-link"
             onClick={() => setLegalDoc('privacy')}
           >
-            Privacy
+            {t('status.privacy')}
           </button>
           <span className="statusbar-legal-sep" aria-hidden>
             ·
@@ -146,7 +151,7 @@ export default function StatusBar({
             className="statusbar-legal-link"
             onClick={() => setLegalDoc('terms')}
           >
-            Terms
+            {t('status.terms')}
           </button>
            {showCredit && (
             <>
@@ -159,7 +164,7 @@ export default function StatusBar({
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                by Anthony Riley ❤️
+                {t('status.credit')}
               </a>
             </>
           )}

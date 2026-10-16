@@ -1,5 +1,6 @@
 import type { PersistStorage, StorageValue } from 'zustand/middleware'
 import { hasUnsavedEdits, setSaveState } from '../saveStatus'
+import { t } from '../i18n'
 import type { MapImage } from '../types'
 import {
   dataUrlToBlob,
@@ -63,7 +64,7 @@ async function makeThumbnail(dataUrl: string): Promise<Blob | null> {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
       const el = new Image()
       el.onload = () => resolve(el)
-      el.onerror = () => reject(new Error('Could not decode map image'))
+      el.onerror = () => reject(new Error(t('error.decodeMap')))
       el.src = dataUrl
     })
     const scale = Math.min(1, THUMBNAIL_MAX_PX / Math.max(img.width, img.height))
