@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { useIsTouchLayout } from '../hooks/useLayoutMode'
+import { useT } from '../i18n'
 
 const STORAGE_KEY = 'touch-hints-dismissed'
 const AUTO_HIDE_MS = 12000
 
 export default function TouchHints() {
+  const t = useT()
   const isTouch = useIsTouchLayout()
   const [visible, setVisible] = useState(false)
 
@@ -30,14 +32,11 @@ export default function TouchHints() {
 
   return (
     <div className="touch-hints" role="status">
-      <p>
-        Pinch to zoom, use two fingers to pan. Tap a tool, then tap the map to
-        draw or place markers.
-      </p>
+      <p>{t('touch.tips')}</p>
       <button
         type="button"
         className="touch-hints-dismiss"
-        aria-label="Dismiss tips"
+        aria-label={t('touch.dismissTips')}
         onClick={dismiss}
       >
         <X size={14} aria-hidden />

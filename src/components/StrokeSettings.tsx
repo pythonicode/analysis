@@ -4,6 +4,7 @@ import { useAppStore } from '../store'
 import ColorPickerModal from './ColorPickerModal'
 import Tooltip from './Tooltip'
 import type { LayoutMode } from '../hooks/useLayoutMode'
+import { useT } from '../i18n'
 
 const DEFAULT_CUSTOM_COLOR = '#08060d'
 
@@ -12,6 +13,7 @@ export default function StrokeSettings({
 }: {
   layoutMode: LayoutMode
 }) {
+  const t = useT()
   const strokeWidth = useAppStore((s) => s.strokeWidth)
   const setStrokeWidth = useAppStore((s) => s.setStrokeWidth)
   const strokeColor = useAppStore((s) => s.strokeColor)
@@ -37,7 +39,7 @@ export default function StrokeSettings({
     <button
       type="button"
       className={`swatch swatch-custom${isCustomActive ? ' active' : ''}`}
-      aria-label="Custom color"
+      aria-label={t('stroke.custom')}
       aria-pressed={isCustomActive}
       onClick={() => setPickerOpen(true)}
     >
@@ -61,7 +63,7 @@ export default function StrokeSettings({
       <div className="stroke-settings-touch">
         <div className="tool-section tool-section-horizontal">
           <label className="tool-label" htmlFor="stroke-width">
-            Width
+            {t('stroke.width')}
           </label>
           <input
             id="stroke-width"
@@ -75,7 +77,7 @@ export default function StrokeSettings({
         </div>
         <div className="tool-section tool-section-horizontal">
           <label className="tool-label" htmlFor="stroke-opacity">
-            Opacity
+            {t('stroke.opacity')}
           </label>
           <input
             id="stroke-opacity"
@@ -88,7 +90,7 @@ export default function StrokeSettings({
           <span className="tool-value">{Math.round(strokeOpacity * 100)}%</span>
         </div>
         <div className="tool-section tool-section-horizontal">
-          <span className="tool-label">Color</span>
+          <span className="tool-label">{t('stroke.color')}</span>
           <div className="swatches swatches-row">
             {SWATCHES.map((color) => (
               <button
@@ -96,7 +98,7 @@ export default function StrokeSettings({
                 type="button"
                 className={`swatch${strokeColor === color ? ' active' : ''}`}
                 style={{ background: color }}
-                aria-label={`Color ${color}`}
+                aria-label={t('stroke.colorAria', { color })}
                 onClick={() => setStrokeColor(color)}
               />
             ))}
@@ -110,10 +112,10 @@ export default function StrokeSettings({
 
   return (
     <>
-      <Tooltip content="Line and marker stroke width" side="right">
+      <Tooltip content={t('stroke.widthHint')} side="right">
         <div className="tool-section">
           <label className="tool-label" htmlFor="stroke-width">
-            Width
+            {t('stroke.width')}
           </label>
           <input
             id="stroke-width"
@@ -126,10 +128,10 @@ export default function StrokeSettings({
           <span className="tool-value">{strokeWidth}px</span>
         </div>
       </Tooltip>
-      <Tooltip content="Transparency for drawn lines and markers" side="right">
+      <Tooltip content={t('stroke.opacityHint')} side="right">
         <div className="tool-section">
           <label className="tool-label" htmlFor="stroke-opacity">
-            Opacity
+            {t('stroke.opacity')}
           </label>
           <input
             id="stroke-opacity"
@@ -143,20 +145,20 @@ export default function StrokeSettings({
         </div>
       </Tooltip>
       <div className="tool-section">
-        <span className="tool-label">Color</span>
+        <span className="tool-label">{t('stroke.color')}</span>
         <div className="swatches">
           {SWATCHES.map((color) => (
-            <Tooltip key={color} content={`Use ${color}`} side="right">
+            <Tooltip key={color} content={t('stroke.useColor', { color })} side="right">
               <button
                 type="button"
                 className={`swatch${strokeColor === color ? ' active' : ''}`}
                 style={{ background: color }}
-                aria-label={`Color ${color}`}
+                aria-label={t('stroke.colorAria', { color })}
                 onClick={() => setStrokeColor(color)}
               />
             </Tooltip>
           ))}
-          <Tooltip content="Pick a custom color" side="right">
+          <Tooltip content={t('stroke.customHint')} side="right">
             {customSwatch}
           </Tooltip>
         </div>

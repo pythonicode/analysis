@@ -7,6 +7,7 @@ import {
   formatPace,
   vertexCount,
 } from '../utils/gpxMetrics'
+import { formatNumber, t, useT } from '../i18n'
 
 const CHART_HEIGHT = 160
 const PAD = { top: 14, right: 14, bottom: 30, left: 46 }
@@ -18,8 +19,8 @@ interface GpxCropPanelProps {
 }
 
 function formatDistanceKm(km: number): string {
-  if (km < 10) return `${km.toFixed(2)} km`
-  return `${km.toFixed(1)} km`
+  const digits = km < 10 ? 2 : 1
+  return t('gpx.km', { value: formatNumber(km, digits) })
 }
 
 export default function GpxCropPanel({
@@ -27,6 +28,7 @@ export default function GpxCropPanel({
   onApply,
   onCancel,
 }: GpxCropPanelProps) {
+  const t = useT()
   const n = vertexCount(track)
   const [startIndex, setStartIndex] = useState(0)
   const [endIndex, setEndIndex] = useState(n - 1)
@@ -155,10 +157,10 @@ export default function GpxCropPanel({
 
   return (
     <div className="gpx-crop-panel">
-      <p className="gpx-crop-panel-title">Crop track</p>
+      <p className="gpx-crop-panel-title">{t('gpx.cropTitle')}</p>
       {!hasTiming && (
         <p className="gpx-crop-panel-note">
-          No timing data in this GPX — crop by distance
+          {t('gpx.noTiming')}
         </p>
       )}
 
@@ -326,12 +328,12 @@ export default function GpxCropPanel({
       </div>
 
       {!isValid && (
-        <p className="gpx-crop-error">Selection must include at least 2 points.</p>
+        <p className="gpx-crop-error">{t('gpx.cropError')}</p>
       )}
 
       <div className="gpx-crop-actions">
         <button type="button" className="button button-small" onClick={onCancel}>
-          Cancel
+          {t('common.cancel')}
         </button>
         <button
           type="button"
@@ -339,7 +341,7 @@ export default function GpxCropPanel({
           disabled={!isValid || isUnchanged}
           onClick={() => onApply(cropTrack(track, startIndex, endIndex))}
         >
-          Apply crop
+          {t('gpx.applyCrop')}
         </button>
       </div>
     </div>

@@ -4,6 +4,7 @@ import type { LegalDocumentId } from '../content/legal'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import BottomSheet from './BottomSheet'
 import LegalModal from './LegalModal'
+import { useT } from '../i18n'
 import type { TopBarMenuAction } from './overflowActions'
 
 export default function TopBarMenu({
@@ -15,6 +16,7 @@ export default function TopBarMenu({
 }) {
   const [open, setOpen] = useState(false)
   const [legalDoc, setLegalDoc] = useState<LegalDocumentId | null>(null)
+  const t = useT()
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   const visibleActions = actions.filter((a) => !a.hidden)
@@ -33,7 +35,7 @@ export default function TopBarMenu({
           onClick={() => openLegal('privacy')}
         >
           <Shield size={16} aria-hidden />
-          <span>Privacy Policy</span>
+          <span>{t('menu.privacy')}</span>
         </button>
       </li>
       <li>
@@ -43,7 +45,7 @@ export default function TopBarMenu({
           onClick={() => openLegal('terms')}
         >
           <FileText size={16} aria-hidden />
-          <span>Terms of Service</span>
+          <span>{t('menu.terms')}</span>
         </button>
       </li>
     </ul>
@@ -90,21 +92,21 @@ export default function TopBarMenu({
         <button
           type="button"
           className="button button-icon-only"
-          aria-label="Menu"
+          aria-label={t('menu.menu')}
           aria-expanded={open}
           onClick={() => setOpen(true)}
         >
           <Menu size={18} aria-hidden />
         </button>
         {open && (
-          <BottomSheet title="Menu" onClose={() => setOpen(false)}>
+          <BottomSheet title={t('menu.menu')} onClose={() => setOpen(false)}>
             <div className="topbar-menu-sections">
               <div className="topbar-menu-section">
-                <h3>File</h3>
+                <h3>{t('menu.file')}</h3>
                 {menuItems}
               </div>
               <div className="topbar-menu-section">
-                <h3>Legal</h3>
+                <h3>{t('menu.legal')}</h3>
                 {legalMenuItems}
               </div>
             </div>
@@ -122,7 +124,7 @@ export default function TopBarMenu({
       <button
         type="button"
         className="button button-icon-only"
-        aria-label="More actions"
+        aria-label={t('menu.more')}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >

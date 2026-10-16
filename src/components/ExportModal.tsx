@@ -14,6 +14,7 @@ import {
   type ExportPreviewImages,
 } from '../utils/export'
 import type { LayoutMode } from '../hooks/useLayoutMode'
+import { t, useT } from '../i18n'
 import { useEscapeKey } from '../hooks/useEscapeKey'
 
 const PREVIEW_ZOOM_MIN = 1
@@ -23,7 +24,7 @@ const PREVIEW_ZOOM_STEP = 0.25
 function exportFailureMessage(error: unknown): string {
   return error instanceof Error
     ? error.message
-    : 'Export failed — please try again'
+    : t('export.failed')
 }
 
 export default function ExportModal({
@@ -33,6 +34,7 @@ export default function ExportModal({
   layoutMode: LayoutMode
   onClose: () => void
 }) {
+  const t = useT()
   const annotations = useAppStore((s) => s.annotations)
   const markerDisplayMode = useAppStore((s) => s.markerDisplayMode)
 
@@ -228,7 +230,7 @@ export default function ExportModal({
 
   const zoomLabel =
     previewZoom <= 1.01
-      ? 'Fit'
+      ? t('export.fit')
       : useFullRes
         ? `${Math.round(Math.min(100, displayScale * 100))}%`
         : `${Math.round(previewZoom * 100)}%`
@@ -243,11 +245,11 @@ export default function ExportModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
-          <h2 id="export-modal-title">Export</h2>
+          <h2 id="export-modal-title">{t('export.title')}</h2>
           <button
             type="button"
             className="modal-close"
-            aria-label="Close"
+            aria-label={t('common.close')}
             onClick={onClose}
           >
             <X size={16} aria-hidden />
@@ -260,12 +262,12 @@ export default function ExportModal({
             className={`export-preview-wrap${isPanning ? ' is-panning' : ''}${previewZoom > 1 ? ' is-zoomed' : ''}`}
           >
             {previewLoading && !previews && (
-              <p className="export-preview-placeholder">Generating preview…</p>
+              <p className="export-preview-placeholder">{t('export.generating')}</p>
             )}
             {previews && (
               <>
                 {!previewReady && (
-                  <p className="export-preview-placeholder">Loading preview…</p>
+                  <p className="export-preview-placeholder">{t('export.loadingPreview')}</p>
                 )}
                 <div
                   className="export-preview-stage"
@@ -293,7 +295,7 @@ export default function ExportModal({
                   />
                   <img
                     src={previews.full.url}
-                    alt="Export preview"
+                    alt={t('export.previewAlt')}
                     width={previews.full.width}
                     height={previews.full.height}
                     className={`export-preview-image export-preview-image-full${useFullRes ? '' : ' export-preview-image-hidden'}${previewLoading ? ' export-preview-image-loading' : ''}`}
@@ -309,7 +311,7 @@ export default function ExportModal({
                   <button
                     type="button"
                     className="button export-preview-zoom-btn"
-                    aria-label="Zoom out"
+                    aria-label={t('export.zoomOut')}
                     disabled={previewZoom <= PREVIEW_ZOOM_MIN + 0.01}
                     onClick={() =>
                       setZoom((current) => current - PREVIEW_ZOOM_STEP)
@@ -320,7 +322,7 @@ export default function ExportModal({
                   <button
                     type="button"
                     className="button export-preview-zoom-btn"
-                    aria-label="Zoom in"
+                    aria-label={t('export.zoomIn')}
                     disabled={previewZoom >= previewZoomMax - 0.01}
                     onClick={() =>
                       setZoom((current) => current + PREVIEW_ZOOM_STEP)
@@ -331,7 +333,7 @@ export default function ExportModal({
                   <button
                     type="button"
                     className="button export-preview-zoom-btn"
-                    aria-label="Reset zoom"
+                    aria-label={t('export.resetZoom')}
                     disabled={
                       previewZoom <= 1.01 &&
                       Math.abs(previewPan.x) < 1 &&
@@ -343,7 +345,7 @@ export default function ExportModal({
                   </button>
                 </div>
                 <p className="export-preview-hint">
-                  Scroll to zoom · drag to pan
+                  {t('export.hint')}
                 </p>
               </>
             )}
@@ -357,23 +359,23 @@ export default function ExportModal({
                   checked={includeSidebar}
                   onChange={(e) => setIncludeSidebar(e.target.checked)}
                 />
-                <span>Include annotation sidebar</span>
+                <span>{t('export.includeSidebar')}</span>
               </label>
               <p className="export-control-hint">
                 {markerDisplayMode === 'comments'
-                  ? 'Comments are shown on the map — turn off the sidebar to avoid duplicating them.'
-                  : 'The sidebar lists each marker letter with its comment.'}
+                  ? t('export.sidebarWithComments')
+                  : t('export.sidebarWithLabels')}
               </p>
 
               <label className="export-slider">
-                <span className="export-slider-label">Text size</span>
+                <span className="export-slider-label">{t('export.textSize')}</span>
                 <input
                   type="range"
                   min={ANNOTATION_TEXT_SCALE_MIN}
                   max={ANNOTATION_TEXT_SCALE_MAX}
                   step={ANNOTATION_TEXT_SCALE_STEP}
                   value={textScalePct}
-                  aria-label="Text size"
+                  aria-label={t('export.textSize')}
                   onChange={(e) =>
                     setAnnotationTextScalePct(Number(e.target.value))
                   }
@@ -391,14 +393,13 @@ export default function ExportModal({
         )}
         {!exportError && previews && previews.scale < 1 && (
           <p className="export-status" role="status">
-            This map is larger than this device can export at full size, so the
-            PNG will be {Math.round(previews.scale * 100)}% of native resolution.
+            {t('export.scaleNotice', { percent: Math.round(previews.scale * 100) })}
           </p>
         )}
 
         <div className={`modal-actions${isTouch ? ' modal-actions-touch' : ''}`}>
           <button type="button" className="button" onClick={onClose}>
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -407,7 +408,7 @@ export default function ExportModal({
             onClick={() => void handleExport()}
           >
             <Download size={14} aria-hidden />
-            {exporting ? 'Exporting…' : 'Download PNG'}
+            {exporting ? t('export.exporting') : t('export.download')}
           </button>
         </div>
       </div>

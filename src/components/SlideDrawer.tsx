@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { X } from 'lucide-react'
+import { useT } from '../i18n'
 
 export default function SlideDrawer({
   title,
@@ -12,6 +13,7 @@ export default function SlideDrawer({
   onClose: () => void
   children: React.ReactNode
 }) {
+  const t = useT()
   useEffect(() => {
     if (!open) return
     const onKeyDown = (e: KeyboardEvent) => {
@@ -38,7 +40,7 @@ export default function SlideDrawer({
             <button
               type="button"
               className="slide-drawer-close"
-              aria-label="Close"
+              aria-label={t('common.close')}
               onClick={onClose}
             >
               <X size={16} aria-hidden />

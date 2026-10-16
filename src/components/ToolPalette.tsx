@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { TOOLS, getToolByHotkey, getToolTip } from '../config/tools'
+import { useT } from '../i18n'
 import type { LayoutMode } from '../hooks/useLayoutMode'
 import { useAppStore } from '../store'
 import StrokeSettings from './StrokeSettings'
@@ -13,6 +14,7 @@ export default function ToolPalette({
   const activeTool = useAppStore((s) => s.activeTool)
   const setActiveTool = useAppStore((s) => s.setActiveTool)
   const hasTracks = useAppStore((s) => s.tracks.length > 0)
+  const t = useT()
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -43,19 +45,19 @@ export default function ToolPalette({
 
   return (
     <aside className="tool-palette">
-      <div className="tool-buttons" role="toolbar" aria-label="Drawing tools">
+      <div className="tool-buttons" role="toolbar" aria-label={t('toolbar.drawingTools')}>
         {TOOLS.map(({ id, label, hotkey, icon: Icon }) => {
           const tip =
             id === 'gpx' && !hasTracks
-              ? 'Import a GPX file first'
-              : `${getToolTip(id, layoutMode)} (${hotkey})`
+              ? t('tool.gpxNeedsFile')
+              : t('tool.hotkeyLabel', { tip: getToolTip(id, layoutMode), key: hotkey })
 
           return (
             <Tooltip key={id} content={tip} side="right">
               <button
                 type="button"
                 className={`tool-button${activeTool === id ? ' active' : ''}`}
-                aria-label={label}
+                aria-label={t(label)}
                 aria-keyshortcuts={hotkey}
                 aria-pressed={activeTool === id}
                 disabled={id === 'gpx' && !hasTracks}

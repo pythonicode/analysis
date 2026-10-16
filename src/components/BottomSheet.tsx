@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef } from 'react'
 import { X } from 'lucide-react'
 import { useEscapeKey } from '../hooks/useEscapeKey'
+import { useT } from '../i18n'
 
 export default function BottomSheet({
   title,
@@ -13,6 +14,7 @@ export default function BottomSheet({
   children: React.ReactNode
   className?: string
 }) {
+  const t = useT()
   const titleId = useId()
   const sheetRef = useRef<HTMLDivElement>(null)
 
@@ -52,7 +54,7 @@ export default function BottomSheet({
             <button
               type="button"
               className="bottom-sheet-close"
-              aria-label="Close"
+              aria-label={t('common.close')}
               onClick={onClose}
             >
               <X size={18} aria-hidden />

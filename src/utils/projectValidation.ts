@@ -1,4 +1,5 @@
 import type { ProjectData } from '../store'
+import { t } from '../i18n'
 
 export const PROJECT_FORMAT = 'map-analysis'
 export const PROJECT_VERSION = 1
@@ -32,12 +33,12 @@ function assertItems(
   isValid: (item: unknown) => boolean,
 ): void {
   if (!Array.isArray(items)) {
-    throw new Error(`Invalid ${label} in project file`)
+    throw new Error(t('error.invalidEntry', { label }))
   }
   const badIndex = items.findIndex((item) => !isValid(item))
   if (badIndex !== -1) {
     throw new Error(
-      `Invalid ${label} in project file (entry ${badIndex + 1} is damaged)`,
+      t('error.damagedEntry', { label, index: badIndex + 1 }),
     )
   }
 }
@@ -93,27 +94,27 @@ function isValidAnnotation(v: unknown): boolean {
 
 export function validateProjectFile(raw: unknown): ProjectFile {
   if (!isRecord(raw)) {
-    throw new Error('Project file is not valid JSON')
+    throw new Error(t('error.notJson'))
   }
 
   if (raw.format !== PROJECT_FORMAT) {
-    throw new Error('Not an O-Analysis project file')
+    throw new Error(t('error.notOurs'))
   }
   if (raw.version !== PROJECT_VERSION) {
-    throw new Error(`Unsupported project version: ${String(raw.version)}`)
+    throw new Error(t('error.version', { version: String(raw.version) }))
   }
   if (raw.mapImage !== null && !isValidMapImage(raw.mapImage)) {
-    throw new Error('Invalid map image in project file')
+    throw new Error(t('error.invalidMap'))
   }
   if (raw.name !== undefined && typeof raw.name !== 'string') {
-    throw new Error('Invalid project name in project file')
+    throw new Error(t('error.invalidName'))
   }
   if (raw.rotation !== undefined && !isFiniteNumber(raw.rotation)) {
-    throw new Error('Invalid rotation in project file')
+    throw new Error(t('error.invalidRotation'))
   }
-  assertItems('GPX tracks', raw.tracks, isValidTrack)
-  assertItems('drawings', raw.paths, isValidPath)
-  assertItems('annotations', raw.annotations, isValidAnnotation)
+  assertItems(t('error.labelTracks'), raw.tracks, isValidTrack)
+  assertItems(t('error.labelDrawings'), raw.paths, isValidPath)
+  assertItems(t('error.labelAnnotations'), raw.annotations, isValidAnnotation)
 
   return raw as unknown as ProjectFile
 }
